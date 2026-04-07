@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "ZapCRM Pos-venda e Expansao",
+  "boards": [
+    {
+      "slug": "onboarding",
+      "name": "1. Onboarding e Ativacao",
+      "columns": [
+        { "name": "Kickoff", "color": "bg-blue-500", "linkedLifecycleStage": "CUSTOMER" },
+        { "name": "Configuracao", "color": "bg-purple-500", "linkedLifecycleStage": "CUSTOMER" },
+        { "name": "Primeiro Resultado", "color": "bg-yellow-500", "linkedLifecycleStage": "CUSTOMER" },
+        { "name": "Ativado", "color": "bg-green-500", "linkedLifecycleStage": "CUSTOMER" }
+      ],
+      "strategy": {
+        "agentPersona": {
+          "name": "Eva",
+          "role": "Onboarding",
+          "behavior": "Organize onboarding com clareza, cobre proximos passos e gere resumos uteis para acelerar ativacao."
+        },
+        "goal": {
+          "description": "Levar novos clientes ao primeiro resultado mais rapido.",
+          "kpi": "Time to First Value",
+          "targetValue": "14",
+          "type": "number"
+        },
+        "entryTrigger": "Cliente marcado como ganho na etapa comercial."
+      }
+    },
+    {
+      "slug": "expansao",
+      "name": "2. Expansao e Renovacao",
+      "columns": [
+        { "name": "Oportunidade Mapeada", "color": "bg-blue-500", "linkedLifecycleStage": "CUSTOMER" },
+        { "name": "Apresentacao", "color": "bg-cyan-500", "linkedLifecycleStage": "CUSTOMER" },
+        { "name": "Negociacao", "color": "bg-orange-500", "linkedLifecycleStage": "CUSTOMER" },
+        { "name": "Expandiu", "color": "bg-green-500", "linkedLifecycleStage": "CUSTOMER" },
+        { "name": "Nao Avancou", "color": "bg-red-500", "linkedLifecycleStage": "OTHER" }
+      ],
+      "strategy": {
+        "agentPersona": {
+          "name": "Iris",
+          "role": "Expansao",
+          "behavior": "Observe sinais de uso, identifique momento comercial e proponha expansao com base em valor percebido."
+        },
+        "goal": {
+          "description": "Aumentar receita por cliente com uma cadencia simples de expansao.",
+          "kpi": "Expansion Revenue",
+          "targetValue": "20",
+          "type": "percentage"
+        },
+        "entryTrigger": "Cliente ativo com uso consistente, sinais positivos e espaco para expansao."
+      }
+    }
+  ]
+}

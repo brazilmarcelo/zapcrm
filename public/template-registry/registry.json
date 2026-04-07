@@ -1,0 +1,23 @@
+{
+  "version": "1.0.0",
+  "templates": [
+    {
+      "id": "zapcrm-whatsapp-consultivo",
+      "path": "journeys/zapcrm-whatsapp-consultivo",
+      "name": "ZapCRM Consultivo com WhatsApp",
+      "description": "Jornada para operacao comercial com entrada por WhatsApp, qualificacao, proposta, fechamento e reativacao.",
+      "author": "Lucas Villela",
+      "version": "1.0.0",
+      "tags": ["whatsapp", "consultivo", "crm", "lead-scoring", "ia"]
+    },
+    {
+      "id": "zapcrm-pos-venda-expansao",
+      "path": "journeys/zapcrm-pos-venda-expansao",
+      "name": "ZapCRM Pos-venda e Expansao",
+      "description": "Fluxo para onboarding, ativacao, follow-up e expansao de clientes recorrentes.",
+      "author": "Lucas Villela",
+      "version": "1.0.0",
+      "tags": ["customer-success", "expansao", "follow-up", "whatsapp"]
+    }
+  ]
+}

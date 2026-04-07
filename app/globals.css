@@ -1,0 +1,389 @@
+@config "../tailwind.config.js";
+@import "tailwindcss";
+
+/* ========================================
+ * Tailwind v4 Theme Configuration
+ * Migrated from tailwind.config.js
+ * ======================================== */
+@theme {
+  /* Font Families */
+  --font-sans: 'Inter', var(--font-inter), sans-serif;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-serif: 'Cinzel', serif;
+
+  /* Primary Colors */
+  --color-primary-50: #f0f9ff;
+  --color-primary-100: #e0f2fe;
+  --color-primary-200: #bae6fd;
+  --color-primary-300: #7dd3fc;
+  --color-primary-400: #38bdf8;
+  --color-primary-500: #0ea5e9;
+  --color-primary-600: #0284c7;
+  --color-primary-700: #0369a1;
+  --color-primary-800: #075985;
+  --color-primary-900: #0c4a6e;
+
+  /* Dark Theme Colors */
+  --color-dark-bg: #020617;
+  --color-dark-card: #0f172a;
+  --color-dark-border: #1e293b;
+  --color-dark-hover: #334155;
+}
+
+/* ========================================
+ * Lucide Icon Fix for Tailwind v4
+ * Minimal fix - let inline styles handle colors
+ * ======================================== */
+
+/* Lucide icons should not have fill */
+svg.lucide {
+  fill: none;
+}
+
+
+/* ========================================
+ * CSS Custom Properties for Semantic Colors
+ * These work with both light and dark modes
+ * ======================================== */
+:root {
+  /* App Shell: sidebar width (used by modals/overlays to avoid covering navigation on desktop) */
+  --app-sidebar-width: 0px;
+
+  /* Safe area + app shell sizing */
+  --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --app-safe-area-top: env(safe-area-inset-top, 0px);
+  --app-bottom-nav-height: 0px;
+
+  /* Light Mode - Soft Cream (OKLCH) */
+  --color-bg: oklch(97% 0.005 90);
+  --color-surface: oklch(99% 0.002 90);
+  --color-muted: oklch(95% 0.008 90);
+  --color-border: oklch(90% 0.01 90);
+  --color-border-subtle: oklch(93% 0.008 90);
+
+  /* Status Colors - Light Mode */
+  --color-success: oklch(65% 0.17 145);
+  --color-success-hover: oklch(60% 0.18 145);
+  --color-success-bg: oklch(65% 0.17 145 / 0.1);
+  --color-success-text: oklch(40% 0.15 145);
+
+  --color-warning: oklch(75% 0.15 85);
+  --color-warning-hover: oklch(70% 0.16 85);
+  --color-warning-bg: oklch(75% 0.15 85 / 0.1);
+  --color-warning-text: oklch(50% 0.14 85);
+
+  --color-error: oklch(62% 0.25 25);
+  --color-error-hover: oklch(58% 0.26 25);
+  --color-error-bg: oklch(62% 0.25 25 / 0.1);
+  --color-error-text: oklch(45% 0.23 25);
+
+  --color-info: oklch(60% 0.20 240);
+  --color-info-hover: oklch(55% 0.21 240);
+  --color-info-bg: oklch(60% 0.20 240 / 0.1);
+  --color-info-text: oklch(40% 0.18 240);
+
+  --color-orange: oklch(70% 0.18 55);
+  --color-orange-bg: oklch(70% 0.18 55 / 0.1);
+  --color-orange-text: oklch(48% 0.16 55);
+
+  /* Text Colors - Light Mode */
+  --color-text-primary: oklch(25% 0.015 260);
+  --color-text-secondary: oklch(45% 0.02 260);
+  --color-text-muted: oklch(55% 0.025 260);
+  --color-text-subtle: oklch(62% 0.025 260);
+
+  /* Glass effect - Light */
+  --glass-bg: oklch(99% 0.002 90 / 0.8);
+  --glass-border: oklch(90% 0.01 90 / 0.5);
+  --glass-blur: 10px;
+
+  /* Dots background */
+  --dots-color: oklch(85% 0.01 90);
+
+  /* Chart Colors */
+  --chart-text: #64748b;
+  --chart-grid: rgba(148, 163, 184, 0.1);
+  --chart-tooltip-bg: #0f172a;
+  --chart-tooltip-border: rgba(255, 255, 255, 0.1);
+  --chart-tooltip-text: #f8fafc;
+}
+
+/* Avoid accidental horizontal scroll on small screens (mobile/tablet). */
+html, body {
+  overflow-x: hidden;
+}
+
+.dark {
+  /* Dark Mode - Deep Slate (OKLCH) */
+  --color-bg: oklch(11% 0.025 260);
+  --color-surface: oklch(15% 0.02 260);
+  --color-muted: oklch(22% 0.015 260);
+  --color-border: oklch(26% 0.012 260);
+  --color-border-subtle: oklch(22% 0.01 260 / 0.6);
+
+  /* Status Colors - Dark Mode */
+  --color-success: oklch(70% 0.17 145);
+  --color-success-hover: oklch(65% 0.17 145);
+  --color-success-bg: oklch(70% 0.17 145 / 0.1);
+  --color-success-text: oklch(70% 0.17 145);
+
+  --color-warning: oklch(80% 0.14 85);
+  --color-warning-hover: oklch(75% 0.15 85);
+  --color-warning-bg: oklch(80% 0.14 85 / 0.1);
+  --color-warning-text: oklch(80% 0.14 85);
+
+  --color-error: oklch(68% 0.24 25);
+  --color-error-hover: oklch(62% 0.25 25);
+  --color-error-bg: oklch(68% 0.24 25 / 0.1);
+  --color-error-text: oklch(68% 0.24 25);
+
+  --color-info: oklch(70% 0.19 240);
+  --color-info-hover: oklch(60% 0.20 240);
+  --color-info-bg: oklch(70% 0.19 240 / 0.1);
+  --color-info-text: oklch(70% 0.19 240);
+
+  --color-orange: oklch(75% 0.17 55);
+  --color-orange-bg: oklch(75% 0.17 55 / 0.1);
+  --color-orange-text: oklch(75% 0.17 55);
+
+  /* Text Colors - Dark Mode */
+  --color-text-primary: oklch(98% 0.002 260);
+  --color-text-secondary: oklch(83% 0.015 260);
+  --color-text-muted: oklch(72% 0.02 260);
+  --color-text-subtle: oklch(62% 0.025 260);
+
+  /* Glass effect - Dark */
+  --glass-bg: oklch(15% 0.02 260 / 0.75);
+  --glass-border: oklch(100% 0 0 / 0.05);
+  --glass-blur: 12px;
+
+  /* Dots background */
+  --dots-color: oklch(22% 0.012 260);
+
+  /* Chart Colors */
+  --chart-text: #94a3b8;
+  --chart-grid: rgba(255, 255, 255, 0.1);
+  --chart-tooltip-bg: #1e293b;
+  --chart-tooltip-border: rgba(255, 255, 255, 0.1);
+  --chart-tooltip-text: #f8fafc;
+}
+
+/* ========================================
+ * Base Styles
+ * ======================================== */
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+}
+
+/* ========================================
+ * Custom Utilities
+ * ======================================== */
+@utility font-display {
+  font-family: var(--font-display);
+}
+
+@utility bg-dots {
+  background-image: radial-gradient(var(--dots-color) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+@utility glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-color: var(--glass-border);
+}
+
+/* ========================================
+ * Custom Scrollbar
+ * ======================================== */
+@utility scrollbar-custom {
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+}
+
+.dark .scrollbar-custom::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+.dark .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* ========================================
+ * Accessibility Utilities
+ * ======================================== */
+@utility sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.sr-only-focusable:focus,
+.sr-only-focusable:focus-within {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: 0.5rem 1rem;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+.focus-visible-ring:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.dark .focus-visible-ring:focus-visible {
+  outline-color: #60a5fa;
+}
+
+.focus-visible-high:focus-visible {
+  outline: 3px solid #1d4ed8;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.3);
+}
+
+.dark .focus-visible-high:focus-visible {
+  outline-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.3);
+}
+
+/* Skip link styling */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  z-index: 9999;
+  padding: 0.75rem 1.5rem;
+  background-color: #1e40af;
+  color: #ffffff;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 0 0 0.5rem 0;
+  transition: left 0.15s ease-in-out;
+}
+
+.skip-link:focus {
+  left: 0;
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.dark .skip-link {
+  background-color: #3b82f6;
+}
+
+/* Live region for screen reader announcements */
+.live-region {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ========================================
+ * Media Queries
+ * ======================================== */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+
+  .focus-visible-ring:focus-visible,
+  .focus-visible-high:focus-visible {
+    outline-width: 3px;
+    outline-style: solid;
+  }
+}
+
+/* ========================================
+ * Animations
+ * ======================================== */
+@keyframes ping {
+
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* ========================================
+ * Performance: content-visibility
+ * Otimiza renderização de listas longas
+ * Browser pula layout/paint de itens fora da viewport
+ * ======================================== */
+
+/**
+ * .cv-auto - Aplica content-visibility: auto em elementos
+ * Use em linhas de tabela ou itens de lista que são renderizados em quantidade
+ *
+ * contain-intrinsic-size define o tamanho "placeholder" enquanto o elemento
+ * está fora da viewport, evitando scroll jumping
+ *
+ * Exemplo de uso:
+ * <tr className="cv-auto cv-row-md">...</tr>
+ */
+.cv-auto {
+  content-visibility: auto;
+}
+
+/* Tamanhos de placeholder para diferentes tipos de elementos */
+.cv-row-sm {
+  contain-intrinsic-size: auto 40px; /* Linhas pequenas (compactas) */
+}
+
+.cv-row-md {
+  contain-intrinsic-size: auto 60px; /* Linhas médias (padrão) */
+}
+
+.cv-row-lg {
+  contain-intrinsic-size: auto 80px; /* Linhas grandes (com mais conteúdo) */
+}
+
+.cv-card {
+  contain-intrinsic-size: auto 120px; /* Cards (deal cards, contact cards) */
+}
+
+.cv-card-lg {
+  contain-intrinsic-size: auto 200px; /* Cards grandes (com preview) */
+}

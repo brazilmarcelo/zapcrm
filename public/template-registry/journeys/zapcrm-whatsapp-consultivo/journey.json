@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "ZapCRM Consultivo com WhatsApp",
+  "boards": [
+    {
+      "slug": "captacao-whatsapp",
+      "name": "1. Captacao e Qualificacao",
+      "columns": [
+        { "name": "Novo Lead", "color": "bg-blue-500", "linkedLifecycleStage": "LEAD" },
+        { "name": "Primeiro Contato", "color": "bg-cyan-500", "linkedLifecycleStage": "LEAD" },
+        { "name": "Qualificando", "color": "bg-purple-500", "linkedLifecycleStage": "MQL" },
+        { "name": "Pronto para Proposta", "color": "bg-green-500", "linkedLifecycleStage": "PROSPECT" }
+      ],
+      "strategy": {
+        "agentPersona": {
+          "name": "Lia",
+          "role": "SDR de WhatsApp",
+          "behavior": "Responda rapido, qualifique com clareza, identifique intencao de compra e mantenha contexto de conversa para aumentar conversao."
+        },
+        "goal": {
+          "description": "Aumentar taxa de qualificacao vinda do WhatsApp.",
+          "kpi": "Qualified Lead Rate",
+          "targetValue": "35",
+          "type": "percentage"
+        },
+        "entryTrigger": "Novo contato criado manualmente, importado ou iniciado por conversa no WhatsApp."
+      }
+    },
+    {
+      "slug": "proposta-fechamento",
+      "name": "2. Proposta e Fechamento",
+      "columns": [
+        { "name": "Descoberta", "color": "bg-blue-500", "linkedLifecycleStage": "MQL" },
+        { "name": "Proposta Enviada", "color": "bg-yellow-500", "linkedLifecycleStage": "PROSPECT" },
+        { "name": "Negociacao", "color": "bg-orange-500", "linkedLifecycleStage": "PROSPECT" },
+        { "name": "Ganho", "color": "bg-green-500", "linkedLifecycleStage": "CUSTOMER" },
+        { "name": "Perdido", "color": "bg-red-500", "linkedLifecycleStage": "OTHER" }
+      ],
+      "strategy": {
+        "agentPersona": {
+          "name": "Nora",
+          "role": "Closer",
+          "behavior": "Conduza a proposta com objetividade, registre objeções, atualize lead scoring e avance follow-ups com criterio."
+        },
+        "goal": {
+          "description": "Reduzir tempo medio de fechamento e aumentar taxa de ganho.",
+          "kpi": "Win Rate",
+          "targetValue": "25",
+          "type": "percentage"
+        },
+        "entryTrigger": "Lead qualificado, com necessidade mapeada e pronto para proposta."
+      }
+    },
+    {
+      "slug": "reativacao",
+      "name": "3. Reativacao de Oportunidades",
+      "columns": [
+        { "name": "Sem Resposta", "color": "bg-slate-500", "linkedLifecycleStage": "PROSPECT" },
+        { "name": "Follow-up em Curso", "color": "bg-indigo-500", "linkedLifecycleStage": "PROSPECT" },
+        { "name": "Reengajado", "color": "bg-green-500", "linkedLifecycleStage": "PROSPECT" },
+        { "name": "Arquivado", "color": "bg-red-500", "linkedLifecycleStage": "OTHER" }
+      ],
+      "strategy": {
+        "agentPersona": {
+          "name": "Mia",
+          "role": "Reativacao",
+          "behavior": "Use memoria, resumo de conversas e contexto comercial para reativar leads mornos sem parecer repetitiva."
+        },
+        "goal": {
+          "description": "Recuperar oportunidades que esfriaram no WhatsApp.",
+          "kpi": "Reactivation Rate",
+          "targetValue": "15",
+          "type": "percentage"
+        },
+        "entryTrigger": "Oportunidade sem resposta por mais de 3 dias ou sem avancos no pipeline."
+      }
+    }
+  ]
+}
