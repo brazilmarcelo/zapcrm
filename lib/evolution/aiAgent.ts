@@ -720,7 +720,11 @@ async function autoCreateDeal(
 export async function processIncomingMessage(ctx: AIAgentContext): Promise<void> {
   const { supabase, conversation, instance, incomingMessage } = ctx;
 
+  console.log('[ai-agent] processIncomingMessage called:', { conversationId: conversation.id, messageId: incomingMessage.id });
+
   const config = await getAIConfig(supabase, instance.id);
+  console.log('[ai-agent] AI Config:', { configExists: !!config, config });
+
   if (!config) return;
 
   if (!conversation.ai_active) return;
@@ -732,7 +736,9 @@ export async function processIncomingMessage(ctx: AIAgentContext): Promise<void>
   const triggerMessageId = incomingMessage.id;
 
   // Wait 5 seconds for message batching (short enough to stay within Vercel limits)
+  console.log('[ai-agent] Waiting 5 seconds for batching...');
   await new Promise((resolve) => setTimeout(resolve, 5000));
+  console.log('[ai-agent] Done waiting');
 
   // Re-fetch conversation to get latest state
   const { data: freshConv } = await supabase
@@ -740,6 +746,8 @@ export async function processIncomingMessage(ctx: AIAgentContext): Promise<void>
     .select('*')
     .eq('id', conversation.id)
     .single();
+
+  console.log('[ai-agent] Fresh conversation:', { freshConvExists: !!freshConv, aiActive: freshConv?.ai_active });
 
   if (!freshConv || !freshConv.ai_active) return;
 
@@ -752,11 +760,14 @@ export async function processIncomingMessage(ctx: AIAgentContext): Promise<void>
     .gt('created_at', incomingMessage.created_at || new Date().toISOString())
     .limit(1);
 
+  console.log('[ai-agent] Newer messages check:', { count: newerMessages?.length });
+
   if (newerMessages && newerMessages.length > 0) {
     console.log('[ai-agent] Newer message arrived, deferring to its webhook', conversation.id);
     return;
   }
 
+  console.log('[ai-agent] Proceeding to execute AI for conversation:', conversation.id);
   try {
     await _executeAIAfterBatch(ctx, freshConv as WhatsAppConversation, config);
   } catch (e) {

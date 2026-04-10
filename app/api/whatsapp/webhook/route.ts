@@ -106,6 +106,8 @@ async function handleIncomingMessage(
   const messageId = msg.id;
   const timestamp = msg.timestamp;
 
+  console.log('[whatsapp-webhook] handleIncomingMessage:', { from, messageId, timestamp, instanceId: instance.id });
+
   if (!from || !messageId) {
     console.warn('[whatsapp-webhook] Skipping message - missing from or id');
     return;
