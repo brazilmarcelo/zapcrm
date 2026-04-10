@@ -97,6 +97,8 @@ export async function GET(request: Request, { params }: Params) {
       .eq('status', 'APPROVED')
       .order('name');
 
+    console.log('[templates] Saved templates:', savedTemplates);
+
     return NextResponse.json({ data: savedTemplates ?? [] });
   } catch (err) {
     console.error('[whatsapp-templates] Error:', err);
