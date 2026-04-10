@@ -19,9 +19,11 @@ import {
   Brain,
 } from 'lucide-react';
 import { useBranding } from '@/context/BrandingContext';
+import { useToast } from '@/context/ToastContext';
 
 export function WhatsAppAISettings() {
   const { branding } = useBranding();
+  const { addToast } = useToast();
   const { data: instances } = useWhatsAppInstances();
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
 
@@ -110,12 +112,18 @@ export function WhatsAppAISettings() {
 
   const handleSave = () => {
     if (!selectedInstanceId) return;
-    updateConfig.mutate({
-      instanceId: selectedInstanceId,
-      ...form,
-      working_hours_start: form.working_hours_start || null,
-      working_hours_end: form.working_hours_end || null,
-    });
+    updateConfig.mutate(
+      {
+        instanceId: selectedInstanceId,
+        ...form,
+        working_hours_start: form.working_hours_start || null,
+        working_hours_end: form.working_hours_end || null,
+      },
+      {
+        onError: (err) => addToast('Erro ao salvar: ' + err.message, 'error'),
+        onSuccess: () => addToast('Configurações salvas com sucesso!', 'success'),
+      }
+    );
   };
 
   const toggleAI = () => {

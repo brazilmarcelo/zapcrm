@@ -26,20 +26,14 @@ export async function getMetaCredentials(
       .eq('id', instanceId)
       .single();
 
-    if (error) throw error;
-
-    if (!instance?.access_token_encrypted || !instance?.phone_number_id) {
-      throw new Error(
-        'Instance not configured for Meta API. Configure waba_id, phone_number_id, and access_token.'
-      );
+    if (!error && instance?.access_token_encrypted && instance?.phone_number_id) {
+      return {
+        accessToken: instance.access_token_encrypted,
+        phoneNumberId: instance.phone_number_id,
+        businessAccountId: instance.business_account_id ?? '',
+        wabaId: instance.waba_id ?? undefined,
+      };
     }
-
-    return {
-      accessToken: instance.access_token_encrypted,
-      phoneNumberId: instance.phone_number_id,
-      businessAccountId: instance.business_account_id ?? '',
-      wabaId: instance.waba_id ?? undefined,
-    };
   }
 
   const { data: settings, error } = await supabase

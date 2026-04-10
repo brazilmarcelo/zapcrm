@@ -34,16 +34,24 @@ export async function GET(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Instance not found' }, { status: 404 });
   }
 
+  console.log('[templates] Instance:', { 
+    phone_number_id: instance.phone_number_id, 
+    access_token_encrypted: !!instance.access_token_encrypted,
+    business_account_id: instance.business_account_id 
+  });
+
   if (!instance.phone_number_id || !instance.access_token_encrypted) {
     return NextResponse.json({ error: 'Instance not configured for Meta API' }, { status: 400 });
   }
 
   try {
-    const { accessToken, businessAccountId } = await getMetaCredentials(
-      supabase,
-      profile.organization_id,
-      instanceId
-    );
+    const creds = await getMetaCredentials(supabase, profile.organization_id, instanceId);
+    console.log('[templates] Credentials:', { 
+      hasAccessToken: !!creds.accessToken, 
+      businessAccountId: creds.businessAccountId,
+      phoneNumberId: creds.phoneNumberId
+    });
+    const { accessToken, businessAccountId } = creds;
 
     if (!businessAccountId) {
       const { data: templates } = await supabase
