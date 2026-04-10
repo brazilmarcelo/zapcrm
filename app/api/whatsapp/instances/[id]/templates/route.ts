@@ -100,6 +100,7 @@ export async function GET(request: Request, { params }: Params) {
     return NextResponse.json({ data: savedTemplates ?? [] });
   } catch (err) {
     console.error('[whatsapp-templates] Error:', err);
-    return NextResponse.json({ error: 'Failed to fetch templates' }, { status: 500 });
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: 'Failed to fetch templates', details: errorMessage }, { status: 500 });
   }
 }

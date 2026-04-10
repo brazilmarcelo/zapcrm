@@ -32,15 +32,21 @@ export class MetaWhatsAppClient {
       ...options.headers,
     };
 
+    console.log('[Meta API] Request:', { method: options.method || 'GET', url, body: options.body });
+
     const response = await fetch(url, { ...options, headers });
+    const status = response.status;
+    const statusText = response.statusText;
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       const errorMessage = error.error?.message || JSON.stringify(error);
-      throw new Error(`Meta API error ${response.status}: ${errorMessage}`);
+      console.error('[Meta API] Error:', { status, statusText, error: errorMessage });
+      throw new Error(`Meta API error ${status}: ${errorMessage}`);
     }
 
     const text = await response.text();
+    console.log('[Meta API] Response:', { status, length: text.length, preview: text.slice(0, 200) });
     if (!text) return {} as T;
     return JSON.parse(text) as T;
   }
