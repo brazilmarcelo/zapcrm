@@ -64,7 +64,7 @@ export function useCreateWhatsAppInstance() {
       fetchJson<WhatsAppInstance>('/api/whatsapp/instances', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: input.name }),
+        body: JSON.stringify(input),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.whatsappInstances.all });

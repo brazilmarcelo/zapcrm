@@ -122,15 +122,39 @@ function QRCodePanel({ instanceId, onClose }: { instanceId: string; onClose: () 
 
 function AddInstanceModal({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('');
+  const [useMeta, setUseMeta] = useState(false);
+  const [wabaId, setWabaId] = useState('');
+  const [phoneNumberId, setPhoneNumberId] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [accessToken, setAccessToken] = useState('');
+  const [businessAccountId, setBusinessAccountId] = useState('');
 
   const createMutation = useCreateWhatsAppInstance();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(
-      { name: name || 'WhatsApp Principal' },
-      { onSuccess: () => onClose() },
-    );
+    
+    if (useMeta) {
+      if (!wabaId || !phoneNumberId || !accessToken) {
+        return;
+      }
+      createMutation.mutate(
+        {
+          name: name || 'WhatsApp Meta',
+          waba_id: wabaId,
+          phone_number_id: phoneNumberId,
+          phone_number: phoneNumber,
+          access_token: accessToken,
+          business_account_id: businessAccountId,
+        },
+        { onSuccess: () => onClose() }
+      );
+    } else {
+      createMutation.mutate(
+        { name: name || 'WhatsApp Principal' },
+        { onSuccess: () => onClose() },
+      );
+    }
   };
 
   return (
@@ -144,6 +168,28 @@ function AddInstanceModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Toggle between Evolution and Meta */}
+          <div className="flex gap-2 p-1 bg-slate-100 dark:bg-black/20 rounded-lg">
+            <button
+              type="button"
+              onClick={() => setUseMeta(false)}
+              className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
+                !useMeta ? 'bg-white dark:bg-dark-card text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
+              }`}
+            >
+              Evolution API
+            </button>
+            <button
+              type="button"
+              onClick={() => setUseMeta(true)}
+              className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
+                useMeta ? 'bg-white dark:bg-dark-card text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
+              }`}
+            >
+              Meta Cloud API
+            </button>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
               Nome da instância
@@ -152,14 +198,82 @@ function AddInstanceModal({ onClose }: { onClose: () => void }) {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: WhatsApp Vendas"
+              placeholder={useMeta ? "Ex: WhatsApp Meta" : "Ex: WhatsApp Vendas"}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-dark-bg text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
 
-          <p className="text-xs text-slate-400">
-            O sistema cria e configura a instância automaticamente na Evolution API.
-          </p>
+          {useMeta ? (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  WABA ID *
+                </label>
+                <input
+                  type="text"
+                  value={wabaId}
+                  onChange={(e) => setWabaId(e.target.value)}
+                  placeholder="WhatsApp Business Account ID"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-dark-bg text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Phone Number ID *
+                </label>
+                <input
+                  type="text"
+                  value={phoneNumberId}
+                  onChange={(e) => setPhoneNumberId(e.target.value)}
+                  placeholder="Phone Number ID"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-dark-bg text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Número de telefone
+                </label>
+                <input
+                  type="text"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="+5511999999999"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-dark-bg text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Access Token *
+                </label>
+                <input
+                  type="text"
+                  value={accessToken}
+                  onChange={(e) => setAccessToken(e.target.value)}
+                  placeholder="Seu access token da Meta"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-dark-bg text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Business Account ID
+                </label>
+                <input
+                  type="text"
+                  value={businessAccountId}
+                  onChange={(e) => setBusinessAccountId(e.target.value)}
+                  placeholder="Business Account ID (opcional)"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-dark-bg text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-slate-400">
+              O sistema cria e configura a instância automaticamente na Evolution API.
+            </p>
+          )}
 
           {createMutation.error && (
             <p className="text-sm text-red-500">{createMutation.error.message}</p>

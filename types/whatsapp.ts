@@ -37,6 +37,12 @@ export interface WhatsAppInstance {
 
 export interface WhatsAppInstanceCreate {
   name: string;
+  // Meta Cloud API fields (optional)
+  waba_id?: string;
+  phone_number_id?: string;
+  phone_number?: string;
+  access_token?: string;
+  business_account_id?: string;
 }
 
 export interface StartWhatsAppConversationInput {
