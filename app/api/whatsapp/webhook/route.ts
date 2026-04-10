@@ -51,6 +51,8 @@ export async function POST(request: Request) {
   }
 
   try {
+    console.log('[whatsapp-webhook] Received payload:', JSON.stringify(payload).slice(0, 500));
+    
     for (const entry of payload.entry) {
       const changes = entry.changes ?? [];
 
@@ -200,8 +202,16 @@ async function handleIncomingMessage(
     status: 'open',
   });
 
+  console.log('[whatsapp-webhook] AI Check:', {
+    instanceId: instanceDbId,
+    aiEnabled: instance.ai_enabled,
+    conversationId: conversation.id,
+    aiActive: conversation.ai_active,
+  });
+
   const aiEnabled = instance.ai_enabled as boolean;
   if (aiEnabled && conversation.ai_active) {
+    console.log('[whatsapp-webhook] Calling AI agent for conversation:', conversation.id);
     try {
       await processIncomingMessage({
         supabase,
@@ -217,6 +227,8 @@ async function handleIncomingMessage(
     } catch (err) {
       console.error('[whatsapp-ai] Error processing message:', err);
     }
+  } else {
+    console.log('[whatsapp-webhook] AI not triggered:', { aiEnabled, aiActive: conversation.ai_active });
   }
 }
 
