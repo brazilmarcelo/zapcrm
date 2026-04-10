@@ -1,6 +1,6 @@
 /**
  * Meta WhatsApp Cloud API Client
- * Graph API v21.0 - https://developers.facebook.com/docs/whatsapp
+ * Graph API v25.0 - https://developers.facebook.com/docs/whatsapp
  */
 
 import type {
@@ -10,7 +10,7 @@ import type {
   MetaTemplate,
 } from './types';
 
-const META_API_VERSION = 'v21.0';
+const META_API_VERSION = 'v25.0';
 const META_GRAPH_BASE_URL = 'https://graph.facebook.com';
 
 export class MetaWhatsAppClient {

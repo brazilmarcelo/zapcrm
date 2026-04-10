@@ -70,6 +70,7 @@ export async function GET(request: Request, { params }: Params) {
     });
 
     const metaTemplates = await metaClient.getTemplates(businessAccountId);
+    console.log('[templates] Meta response:', metaTemplates);
 
     const templatesToUpsert = metaTemplates.map(t => ({
       organization_id: profile.organization_id,

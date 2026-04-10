@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-const META_API_VERSION = 'v21.0';
+const META_API_VERSION = 'v25.0';
 
 export async function GET() {
   const supabase = await createClient();
