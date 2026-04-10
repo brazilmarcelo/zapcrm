@@ -406,11 +406,15 @@ async function generateAIResponse(
   incomingText: string,
   customerInfo: { phone: string; name: string }
 ): Promise<string> {
+  console.log('[ai-agent] generateAIResponse called');
+
   const { data: orgSettings } = await supabase
     .from('organization_settings')
     .select('ai_provider, ai_model, ai_google_key, ai_openai_key, ai_anthropic_key')
     .eq('organization_id', organizationId)
     .single();
+
+  console.log('[ai-agent] Org settings:', { provider: orgSettings?.ai_provider, model: orgSettings?.ai_model, hasOpenAI: !!orgSettings?.ai_openai_key });
 
   const { data: userSettings } = await supabase
     .from('user_settings')
@@ -426,7 +430,10 @@ async function generateAIResponse(
   else if (provider === 'openai') apiKey = orgSettings?.ai_openai_key || userSettings?.ai_openai_key;
   else if (provider === 'anthropic') apiKey = orgSettings?.ai_anthropic_key || userSettings?.ai_anthropic_key;
 
+  console.log('[ai-agent] API Key check:', { provider, model, hasApiKey: !!apiKey, keyPrefix: apiKey?.slice(0, 10) });
+
   if (!apiKey) {
+    console.log('[ai-agent] NO API KEY - returning transfer message');
     return config.transfer_message || 'Um atendente humano ira continuar o atendimento.';
   }
 
@@ -512,22 +519,27 @@ async function generateAIResponse(
   const hasTools = Object.keys(reservationTools).length > 0;
 
   console.log('[ai-agent] Calling generateText with provider:', provider, 'model:', model, 'hasTools:', hasTools);
+  console.log('[ai-agent] Messages count:', messages.length);
 
   // Some preview models don't support tools well — try with tools first, fall back without
   let result;
   try {
+    console.log('[ai-agent] Calling generateText (attempt 1 with tools)...');
     result = await generateText({
       model: modelInstance,
       messages,
       ...(hasTools ? { maxSteps: 5, tools: reservationTools } : {}),
     } as any);
+    console.log('[ai-agent] generateText success');
   } catch (toolErr) {
     console.warn('[ai-agent] generateText with tools failed, retrying without tools:', toolErr instanceof Error ? toolErr.message : String(toolErr));
     // Retry without tools
+    console.log('[ai-agent] Calling generateText (attempt 2 without tools)...');
     result = await generateText({
       model: modelInstance,
       messages,
     } as any);
+    console.log('[ai-agent] generateText success (retry)');
   }
 
   console.log('[ai-agent] generateText result - text length:', result.text?.length ?? 0,
@@ -786,8 +798,14 @@ export async function processIncomingMessage(ctx: AIAgentContext): Promise<void>
 async function _executeAIAfterBatch(ctx: AIAgentContext, conversation: WhatsAppConversation, config: WhatsAppAIConfig): Promise<void> {
   const { supabase, instance } = ctx;
 
+  console.log('[ai-agent] _executeAIAfterBatch started');
+
   // Check working hours
-  if (!isWithinWorkingHours(config)) {
+  const workingHoursOk = isWithinWorkingHours(config);
+  console.log('[ai-agent] Working hours check:', { ok: workingHoursOk, start: config.working_hours_start, end: config.working_hours_end });
+
+  if (!workingHoursOk) {
+    console.log('[ai-agent] Outside working hours, sending outside_hours_message if configured');
     if (config.outside_hours_message) {
       const today = new Date().toISOString().slice(0, 10);
       const { data: existingMsg } = await supabase
@@ -800,11 +818,14 @@ async function _executeAIAfterBatch(ctx: AIAgentContext, conversation: WhatsAppC
         .limit(1);
 
       if (!existingMsg || existingMsg.length === 0) {
+        console.log('[ai-agent] Sending outside hours message');
         await sendAIReply(supabase, instance, conversation, config.outside_hours_message);
       }
     }
     return;
   }
+
+  console.log('[ai-agent] Working hours OK, proceeding...');
 
   // Auto-create contact
   const contactId = await autoCreateContact(supabase, conversation, config);
