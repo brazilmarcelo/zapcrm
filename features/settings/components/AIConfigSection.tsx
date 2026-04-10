@@ -10,37 +10,37 @@ const AI_PROVIDERS = [
         id: 'google',
         name: 'Google Gemini',
         models: [
-            { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', description: 'Recomendado - Estável e econômico', price: '$0.15 / $0.60' },
             { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', description: 'Alta inteligência', price: '$1.25 / $10' },
-            { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash Experimental', description: 'Mais recente', price: '$0.00 / $0.00' },
-            { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', description: 'Estável', price: '$0.075 / $0.30' },
+            { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', description: 'Recomendado - Estável e econômico', price: '$0.15 / $0.60' },
+            { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', description: 'Mais recente', price: '$0 / $0' },
             { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', description: 'Alta capacidade', price: '$1.25 / $5' },
+            { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', description: 'Estável', price: '$0.075 / $0.30' },
         ]
     },
     {
         id: 'anthropic',
         name: 'Anthropic Claude',
         models: [
+            { id: 'claude-opus-4-20250514', name: 'Claude Opus 4.5', description: 'Premium intelligence', price: '$15 / $75' },
             { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4.5', description: 'Recomendado - Best balance', price: '$3 / $15' },
-            { id: 'claude-haiku-4-20250514', name: 'Claude Haiku 4.5', description: 'Fastest', price: '$1 / $5' },
-            { id: 'claude-opus-4-20250514', name: 'Claude Opus 4.5', description: 'Premium intelligence', price: '$5 / $25' },
+            { id: 'claude-haiku-4-20250514', name: 'Claude Haiku 4.5', description: 'Fastest', price: '$0.80 / $4' },
             { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', description: 'Estável', price: '$3 / $15' },
-            { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', description: 'Alta inteligência', price: '$5 / $25' },
+            { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', description: 'Alta inteligência', price: '$15 / $75' },
         ]
     },
     {
         id: 'openai',
         name: 'OpenAI',
         models: [
-            { id: 'gpt-5', name: 'GPT-5', description: 'Mais recente - Maior inteligência', price: '$10 / $30' },
-            { id: 'gpt-5-mini', name: 'GPT-5 Mini', description: 'Rápido & inteligente', price: '$0.30 / $1.20' },
+            { id: 'gpt-5', name: 'GPT-5', description: 'Mais recente - Maior inteligência', price: '$2.50 / $10' },
+            { id: 'gpt-5-mini', name: 'GPT-5 Mini', description: 'Rápido & inteligente', price: '$0.60 / $2.40' },
             { id: 'gpt-4.1', name: 'GPT-4.1', description: 'Novo - Alta capacidade', price: '$2 / $8' },
-            { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', description: 'Novo - Eficiente', price: '$0.40 / $1.60' },
+            { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', description: 'Novo - Eficiente', price: '$0.80 / $3.20' },
             { id: 'gpt-4o', name: 'GPT-4o', description: 'Recomendado - Multimodal', price: '$2.50 / $10' },
-            { id: 'gpt-4o-mini', name: 'GPT-4o Mini', description: 'Rápido & eficiente', price: '$0.15 / $0.60' },
+            { id: 'gpt-4o-mini', name: 'GPT-4o Mini', description: 'Rápido & eficiente', price: '$0.30 / $1.20' },
             { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', description: 'Alta capacidade', price: '$10 / $30' },
-            { id: 'o3-mini', name: 'o3-mini', description: 'Raciocínio Avançado', price: '$1.10 / $4.40' },
-            { id: 'o4-mini', name: 'o4-mini', description: 'Raciocínio Rápido', price: '$0.55 / $2.20' },
+            { id: 'o3', name: 'o3', description: 'Raciocínio Avançado', price: '$10 / $40' },
+            { id: 'o4-mini', name: 'o4-mini', description: 'Raciocínio Rápido', price: '$1.10 / $4.40' },
         ]
     },
 ] as const;
