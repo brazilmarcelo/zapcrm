@@ -1011,6 +1011,7 @@ async function _executeAIAfterBatch(ctx: AIAgentContext, conversation: WhatsAppC
   // =========================================================================
   // RESPONSE GENERATION
   // =========================================================================
+  console.log('[ai-agent] Starting response generation');
 
   // Check message limit
   if (config.max_messages_per_conversation) {
@@ -1054,7 +1055,10 @@ async function _executeAIAfterBatch(ctx: AIAgentContext, conversation: WhatsAppC
     .eq('conversation_id', conversation.id)
     .eq('from_me', false);
 
+  console.log('[ai-agent] Message count:', msgCount, 'has greeting:', !!config.greeting_message);
+
   if (msgCount === 1 && config.greeting_message) {
+    console.log('[ai-agent] Sending greeting message');
     await sendAIReply(supabase, instance, conversation, config.greeting_message);
     return;
   }
@@ -1078,12 +1082,14 @@ async function _executeAIAfterBatch(ctx: AIAgentContext, conversation: WhatsAppC
       { phone: conversation.phone, name: conversation.contact_name || 'Cliente WhatsApp' }
     );
 
-    console.log('[ai-agent] AI response generated, length:', aiResponse.length);
+    console.log('[ai-agent] AI response generated, length:', aiResponse.length, 'preview:', aiResponse.slice(0, 100));
 
     if (config.reply_delay_ms > 0) {
+      console.log('[ai-agent] Waiting delay:', config.reply_delay_ms, 'ms');
       await new Promise((resolve) => setTimeout(resolve, config.reply_delay_ms));
     }
 
+    console.log('[ai-agent] Calling sendAIReply to:', conversation.phone);
     const msg = await sendAIReply(supabase, instance, conversation, aiResponse);
 
     console.log('[ai-agent] Reply sent to', conversation.phone, 'msg_id:', msg?.id);
