@@ -13,6 +13,8 @@ import {
   getInstance,
 } from '@/lib/supabase/whatsapp';
 import { processIncomingMessage } from '@/lib/evolution/aiAgent';
+import { getMetaCredentials } from '@/lib/meta/helpers';
+import { createMetaClient } from '@/lib/meta/client';
 import type { MetaWebhookPayload, MetaWebhookMessage, MetaWebhookStatus } from '@/lib/meta/types';
 
 export const maxDuration = 60;
@@ -171,6 +173,24 @@ async function handleIncomingMessage(
     status: 'received',
     whatsapp_timestamp: whatsappTimestamp,
   });
+
+  // For audio/image/video, fetch the actual media URL from Meta
+  if (mediaUrl && (messageType === 'audio' || messageType === 'image' || messageType === 'video')) {
+    try {
+      const creds = await getMetaCredentials(supabase, organizationId, instanceDbId);
+      const metaClient = createMetaClient(creds);
+      const mediaData = await metaClient.getMediaUrl(mediaUrl);
+      
+      if (mediaData?.url) {
+        await supabase
+          .from('whatsapp_messages')
+          .update({ media_url: mediaData.url })
+          .eq('id', insertedMessage.id);
+      }
+    } catch (err) {
+      console.error('[whatsapp-webhook] Failed to fetch media URL:', err);
+    }
+  }
 
   const previewText = textBody || mediaCaption || `[${messageType}]`;
   await updateConversation(supabase, conversation.id, {
