@@ -1206,6 +1206,8 @@ async function sendAIReply(
   conversation: WhatsAppConversation,
   text: string,
 ): Promise<WhatsAppMessage | null> {
+  console.log('[ai-agent] sendAIReply called:', { phone: conversation.phone, isMeta: !!(instance as any).phone_number_id && !!(instance as any).access_token });
+
   const isMeta = !!(instance as any).phone_number_id && !!(instance as any).access_token;
 
   let messageId: string | undefined;
@@ -1223,14 +1225,20 @@ async function sendAIReply(
         const { createMetaClient } = await import('@/lib/meta/client');
         const { getMetaCredentials } = await import('@/lib/meta/helpers');
         
+        // Get credentials from database - this returns the token that was saved
         const creds = await getMetaCredentials(supabase, instance.organization_id, instance.id);
+        console.log('[ai-agent] Meta credentials:', { hasToken: !!creds.accessToken, phoneNumberId: creds.phoneNumberId, businessAccountId: creds.businessAccountId });
+        
         const metaClient = createMetaClient({
-          accessToken: (instance as any).access_token,
-          phoneNumberId: (instance as any).phone_number_id,
+          accessToken: creds.accessToken,
+          phoneNumberId: creds.phoneNumberId,
+          businessAccountId: creds.businessAccountId,
         });
         
+        console.log('[ai-agent] Sending via Meta to:', conversation.phone);
         const response = await metaClient.sendText(conversation.phone, chunks[i]);
         messageId = response.messages?.[0]?.id;
+        console.log('[ai-agent] Meta response:', response);
       } else {
         const creds: evolution.EvolutionCredentials = {
           baseUrl: (instance as any).evolution_api_url,
