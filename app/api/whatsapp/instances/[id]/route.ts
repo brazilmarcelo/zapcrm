@@ -106,8 +106,10 @@ export async function DELETE(_request: Request, { params }: Params) {
 
   try {
     const instanceName = instance.evolution_instance_name || instance.instance_id;
-    const { baseUrl, globalApiKey } = await getEvolutionGlobalConfig(ctx.supabase, instance.organization_id);
-    await evolution.deleteEvolutionInstance(baseUrl, globalApiKey, instanceName);
+    if (instanceName) {
+      const { baseUrl, globalApiKey } = await getEvolutionGlobalConfig(ctx.supabase, instance.organization_id);
+      await evolution.deleteEvolutionInstance(baseUrl, globalApiKey, instanceName);
+    }
   } catch {
     // best effort
   }

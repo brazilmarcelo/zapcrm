@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getConversation, getInstance, insertMessage, updateConversation, insertAILog } from '@/lib/supabase/whatsapp';
 import { getEvolutionCredentials } from '@/lib/evolution/helpers';
 import * as evolution from '@/lib/evolution/client';
+import { getMetaCredentials } from '@/lib/meta/helpers';
+import { createMetaClient } from '@/lib/meta/client';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -48,27 +50,34 @@ export async function POST(request: Request, { params }: Params) {
   }
 
   const { text, quotedMessageId } = parsed.data;
-  const creds = await getEvolutionCredentials(supabase, instance);
 
-  let evoResponse: evolution.SendMessageResponse;
-  try {
-    evoResponse = await evolution.sendText(creds, {
+  let messageId: string | undefined;
+
+  if (instance.phone_number_id && instance.access_token_encrypted) {
+    const metaCreds = await getMetaCredentials(supabase, profile.organization_id, instance.id);
+    const metaClient = createMetaClient({ ...metaCreds, phoneNumberId: instance.phone_number_id });
+    const response = await metaClient.sendText(conversation.phone, text, quotedMessageId);
+    messageId = response.messages?.[0]?.id;
+  } else {
+    const creds = await getEvolutionCredentials(supabase, instance);
+    const evoResponse = await evolution.sendText(creds, {
       number: conversation.phone,
       text,
       ...(quotedMessageId ? { quoted: { key: { id: quotedMessageId } } } : {}),
     });
-  } catch {
-    return NextResponse.json({ error: 'Falha ao enviar mensagem via Evolution API.' }, { status: 502 });
+    messageId = evoResponse.key?.id;
   }
 
   const message = await insertMessage(supabase, {
     conversation_id: id,
     organization_id: conversation.organization_id,
-    evolution_message_id: evoResponse.key?.id || undefined,
+    evolution_message_id: messageId?.startsWith('evo_') ? messageId : undefined,
+    meta_message_id: messageId?.startsWith('wam_') ? messageId : undefined,
     from_me: true,
     message_type: 'text',
     text_body: text,
     quoted_message_id: quotedMessageId ?? undefined,
+    context_message_id: quotedMessageId,
     status: 'sent',
     sent_by: `user:${user.id}`,
     whatsapp_timestamp: new Date().toISOString(),

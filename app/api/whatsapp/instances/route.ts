@@ -4,9 +4,16 @@ import { createClient } from '@/lib/supabase/server';
 import { getInstances } from '@/lib/supabase/whatsapp';
 import { getEvolutionGlobalConfig, generateInstanceName } from '@/lib/evolution/helpers';
 import * as evolution from '@/lib/evolution/client';
+import { generateWebhookVerifyToken } from '@/lib/meta/helpers';
 
 const CreateInstanceSchema = z.object({
   name: z.string().min(1).max(100),
+  // Meta Cloud API fields
+  waba_id: z.string().optional(),
+  phone_number_id: z.string().optional(),
+  phone_number: z.string().optional(),
+  access_token: z.string().optional(),
+  business_account_id: z.string().optional(),
 });
 
 async function getUserContext() {
@@ -71,8 +78,40 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { name } = parsed.data;
+  const { name, waba_id, phone_number_id, phone_number, access_token, business_account_id } = parsed.data;
 
+  // Check if Meta Cloud API fields are provided
+  if (waba_id && phone_number_id && access_token) {
+    // Create Meta Cloud API instance
+    const webhookVerifyToken = generateWebhookVerifyToken();
+
+    const { data: dbInstance, error: dbError } = await ctx.supabase
+      .from('whatsapp_instances')
+      .insert({
+        organization_id: ctx.organizationId,
+        name: name || 'WhatsApp Meta',
+        waba_id,
+        phone_number_id,
+        phone_number,
+        access_token_encrypted: access_token,
+        business_account_id,
+        webhook_verify_token: webhookVerifyToken,
+        status: 'connected',
+      })
+      .select()
+      .single();
+
+    if (dbError || !dbInstance) {
+      return NextResponse.json(
+        { error: dbError?.message || 'Failed to create Meta instance.' },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({ data: dbInstance }, { status: 201 });
+  }
+
+  // Legacy: Evolution API
   let baseUrl: string;
   let globalApiKey: string;
   try {

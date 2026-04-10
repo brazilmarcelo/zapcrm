@@ -12,6 +12,13 @@ import type {
   WhatsAppAIConfigUpdate,
   WhatsAppInstanceCreate,
   StartWhatsAppConversationInput,
+  WhatsAppTemplate,
+  WhatsAppLabel,
+  ConversationLabel,
+  ChatMemory,
+  WhatsAppFollowUp,
+  LeadScore,
+  ConversationSummary,
 } from '@/types/whatsapp';
 
 // ---------------------------------------------------------------------------
@@ -254,15 +261,6 @@ export function useUpdateWhatsAppAIConfig() {
 // INTELLIGENCE (combined endpoint)
 // ---------------------------------------------------------------------------
 
-import type {
-  ChatMemory,
-  WhatsAppFollowUp,
-  ConversationLabel,
-  LeadScore,
-  ConversationSummary,
-  WhatsAppLabel,
-} from '@/types/whatsapp';
-
 interface ConversationIntelligenceData {
   memories: ChatMemory[];
   leadScore: LeadScore | null;
@@ -320,6 +318,40 @@ export function useRemoveLabel() {
       qc.invalidateQueries({
         queryKey: queryKeys.whatsappIntelligence.byConversation(vars.conversationId),
       });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// TEMPLATES
+// ---------------------------------------------------------------------------
+
+export function useWhatsAppTemplates(instanceId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.whatsappInstances.detail(instanceId ?? '').concat(['templates']),
+    queryFn: () => fetchJson<WhatsAppTemplate[]>(`/api/whatsapp/instances/${instanceId}/templates`),
+    enabled: !!instanceId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useSendWhatsAppTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ conversationId, templateName, language, components }: {
+      conversationId: string;
+      templateName: string;
+      language?: string;
+      components?: Array<{ type: string; parameters?: Array<{ type: string; text: string }> }>;
+    }) =>
+      fetchJson<WhatsAppMessage>(`/api/whatsapp/conversations/${conversationId}/send-template`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateName, language: language ?? 'pt_BR', components }),
+      }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.whatsappMessages.byConversation(vars.conversationId) });
+      qc.invalidateQueries({ queryKey: queryKeys.whatsappConversations.all });
     },
   });
 }

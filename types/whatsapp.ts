@@ -11,12 +11,22 @@ export type WhatsAppInstanceStatus = 'disconnected' | 'connecting' | 'connected'
 export interface WhatsAppInstance {
   id: string;
   organization_id: string;
-  instance_id: string;     // Evolution API instance ID
-  instance_token: string;  // Evolution API instance apikey
-  client_token?: string;   // Deprecated (not used by Evolution API)
-  evolution_instance_name?: string; // Evolution API instance name (used in URL paths)
+  instance_id?: string;       // Evolution API instance ID (legacy)
+  instance_token?: string;    // Evolution API instance apikey (legacy)
+  client_token?: string;      // Deprecated
+  evolution_instance_name?: string; // Evolution API instance name (legacy)
+  
+  // Meta Cloud API fields
+  waba_id?: string;            // WhatsApp Business Account ID
+  phone_number_id?: string;   // Phone Number ID
+  phone_number?: string;       // Connected phone number (alias: phone)
+  phone?: string;              // Alias for phone_number (legacy)
+  access_token_encrypted?: string;
+  business_account_id?: string;
+  webhook_verify_token?: string;
+  
+  // Common fields
   name: string;
-  phone?: string;
   status: WhatsAppInstanceStatus;
   webhook_url?: string;
   ai_enabled: boolean;
@@ -96,6 +106,8 @@ export interface WhatsAppMessage {
   conversation_id: string;
   organization_id: string;
   evolution_message_id?: string;
+  meta_message_id?: string;
+  context_message_id?: string;
   from_me: boolean;
   sender_name?: string;
   message_type: MessageType;
@@ -111,6 +123,8 @@ export interface WhatsAppMessage {
   status: MessageStatus;
   sent_by?: string;
   whatsapp_timestamp?: string;
+  message_template_name?: string;
+  message_template_components?: string;
   created_at: string;
 }
 
@@ -511,4 +525,26 @@ export interface ConversationIntelligence {
   summary?: string;
   should_pause: boolean;
   pause_reason?: string;
+}
+
+// =============================================================================
+// WHATSAPP TEMPLATES (Meta Cloud API)
+// =============================================================================
+
+export interface WhatsAppTemplate {
+  id: string;
+  organization_id: string;
+  instance_id?: string;
+  meta_template_id: string;
+  name: string;
+  language: string;
+  category: 'UTILITY' | 'MARKETING' | 'AUTHENTICATION';
+  status: 'APPROVED' | 'PENDING' | 'REJECTED' | 'INACTIVE';
+  content: Record<string, unknown>;
+  components: Array<{
+    type: 'BODY' | 'HEADER' | 'FOOTER' | 'BUTTONS';
+    format?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT';
+    text?: string;
+    buttons?: Array<{ type: string; text: string; url?: string; phone_number?: string; payload?: string }>;
+  }>;
 }

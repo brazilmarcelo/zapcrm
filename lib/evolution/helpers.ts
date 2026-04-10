@@ -12,12 +12,16 @@ import type { EvolutionCredentials } from './client';
 export async function getEvolutionCredentials(
   supabase: SupabaseClient,
   instance: {
-    instance_token: string;
+    instance_token?: string;
     evolution_instance_name?: string;
-    instance_id: string;
+    instance_id?: string;
     organization_id: string;
   },
 ): Promise<EvolutionCredentials> {
+  if (!instance.instance_token) {
+    throw new Error('Instance not configured for Evolution API');
+  }
+
   const { data: orgSettings } = await supabase
     .from('organization_settings')
     .select('evolution_api_url')
@@ -31,7 +35,7 @@ export async function getEvolutionCredentials(
   return {
     baseUrl: orgSettings.evolution_api_url,
     apiKey: instance.instance_token,
-    instanceName: instance.evolution_instance_name || instance.instance_id,
+    instanceName: instance.evolution_instance_name || instance.instance_id || '',
   };
 }
 

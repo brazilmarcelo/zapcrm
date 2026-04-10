@@ -7,6 +7,7 @@ import { ApiKeysSection } from './components/ApiKeysSection';
 import { WebhooksSection } from './components/WebhooksSection';
 import { McpSection } from './components/McpSection';
 import { EvolutionApiSettings } from './components/EvolutionApiSettings';
+import { MetaWhatsAppSettings } from './components/MetaWhatsAppSettings';
 import { DataStorageSettings } from './components/DataStorageSettings';
 import { ProductsCatalogManager } from './components/ProductsCatalogManager';
 import { AICenterSettings } from './AICenterSettings';
@@ -164,7 +165,13 @@ const IntegrationsSettings: React.FC = () => {
         })}
       </div>
 
-      {subTab === 'whatsapp' && <EvolutionApiSettings />}
+      {subTab === 'whatsapp' && (
+        <div className="space-y-6">
+          <EvolutionApiSettings />
+          <div className="border-t border-slate-200 dark:border-white/10" />
+          <MetaWhatsAppSettings />
+        </div>
+      )}
       {subTab === 'api' && <ApiKeysSection />}
       {subTab === 'webhooks' && <WebhooksSection />}
       {subTab === 'mcp' && <McpSection />}

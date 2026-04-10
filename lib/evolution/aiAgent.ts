@@ -48,10 +48,14 @@ interface AIAgentContext {
   conversation: WhatsAppConversation;
   instance: {
     id: string;
-    evolution_instance_name: string;
-    instance_token: string;
     organization_id: string;
-    evolution_api_url: string;
+    // Evolution (legacy)
+    evolution_instance_name?: string;
+    instance_token?: string;
+    evolution_api_url?: string;
+    // Meta Cloud API
+    phone_number_id?: string;
+    access_token?: string;
   };
   incomingMessage: WhatsAppMessage;
 }
@@ -183,10 +187,11 @@ async function transcribeAudio(
   evolutionMessageId: string,
 ): Promise<string | null> {
   try {
+    const inst = instance as any;
     const creds: evolution.EvolutionCredentials = {
-      baseUrl: instance.evolution_api_url,
-      apiKey: instance.instance_token,
-      instanceName: instance.evolution_instance_name,
+      baseUrl: inst.evolution_api_url || '',
+      apiKey: inst.instance_token || '',
+      instanceName: inst.evolution_instance_name || '',
     };
 
     console.log('[ai-agent] Downloading audio for transcription, messageId:', evolutionMessageId);
@@ -283,10 +288,11 @@ async function analyzeImage(
   conversationContext?: string,
 ): Promise<{ description: string; isRelevant: boolean } | null> {
   try {
+    const inst = instance as any;
     const creds: evolution.EvolutionCredentials = {
-      baseUrl: instance.evolution_api_url,
-      apiKey: instance.instance_token,
-      instanceName: instance.evolution_instance_name,
+      baseUrl: inst.evolution_api_url || '',
+      apiKey: inst.instance_token || '',
+      instanceName: inst.evolution_instance_name || '',
     };
 
     console.log('[ai-agent] Downloading image for analysis, messageId:', evolutionMessageId);
@@ -1189,32 +1195,50 @@ async function sendAIReply(
   conversation: WhatsAppConversation,
   text: string,
 ): Promise<WhatsAppMessage | null> {
-  const creds: evolution.EvolutionCredentials = {
-    baseUrl: instance.evolution_api_url,
-    apiKey: instance.instance_token,
-    instanceName: instance.evolution_instance_name,
-  };
+  const isMeta = !!(instance as any).phone_number_id && !!(instance as any).access_token;
+
+  let messageId: string | undefined;
 
   try {
-    // Split into chunks of max 2 paragraphs
     const chunks = splitIntoParagraphChunks(text, 2);
     let lastMsg: WhatsAppMessage | null = null;
 
     for (let i = 0; i < chunks.length; i++) {
-      // Delay 5 seconds between chunks (not before the first one)
       if (i > 0) {
         await new Promise((resolve) => setTimeout(resolve, 5000));
       }
 
-      const response = await evolution.sendText(creds, {
-        number: conversation.phone,
-        text: chunks[i],
-      });
+      if (isMeta) {
+        const { createMetaClient } = await import('@/lib/meta/client');
+        const { getMetaCredentials } = await import('@/lib/meta/helpers');
+        
+        const creds = await getMetaCredentials(supabase, instance.organization_id, instance.id);
+        const metaClient = createMetaClient({
+          accessToken: (instance as any).access_token,
+          phoneNumberId: (instance as any).phone_number_id,
+        });
+        
+        const response = await metaClient.sendText(conversation.phone, chunks[i]);
+        messageId = response.messages?.[0]?.id;
+      } else {
+        const creds: evolution.EvolutionCredentials = {
+          baseUrl: (instance as any).evolution_api_url,
+          apiKey: (instance as any).instance_token,
+          instanceName: (instance as any).evolution_instance_name,
+        };
+
+        const response = await evolution.sendText(creds, {
+          number: conversation.phone,
+          text: chunks[i],
+        });
+        messageId = response.key?.id;
+      }
 
       const msg = await insertMessage(supabase, {
         conversation_id: conversation.id,
         organization_id: instance.organization_id,
-        evolution_message_id: response.key?.id || undefined,
+        evolution_message_id: isMeta ? undefined : messageId,
+        meta_message_id: isMeta ? messageId : undefined,
         from_me: true,
         message_type: 'text',
         text_body: chunks[i],
@@ -1226,7 +1250,6 @@ async function sendAIReply(
       lastMsg = msg;
     }
 
-    // Update conversation metadata with the last chunk sent
     const lastChunk = chunks[chunks.length - 1] || text || '';
     await updateConversation(supabase, conversation.id, {
       last_message_text: lastChunk.slice(0, 255),
