@@ -8,7 +8,6 @@ import { createClient } from '@/lib/supabase/server';
 import { getInstance } from '@/lib/supabase/whatsapp';
 import { getMetaCredentials } from '@/lib/meta/helpers';
 import { createMetaClient } from '@/lib/meta/client';
-import type { WhatsAppTemplate } from '@/lib/meta/types';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -34,23 +33,12 @@ export async function GET(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Instance not found' }, { status: 404 });
   }
 
-  console.log('[templates] Instance:', { 
-    phone_number_id: instance.phone_number_id, 
-    access_token_encrypted: !!instance.access_token_encrypted,
-    business_account_id: instance.business_account_id 
-  });
-
   if (!instance.phone_number_id || !instance.access_token_encrypted) {
     return NextResponse.json({ error: 'Instance not configured for Meta API' }, { status: 400 });
   }
 
   try {
     const creds = await getMetaCredentials(supabase, profile.organization_id, instanceId);
-    console.log('[templates] Credentials:', { 
-      hasAccessToken: !!creds.accessToken, 
-      businessAccountId: creds.businessAccountId,
-      phoneNumberId: creds.phoneNumberId
-    });
     const { accessToken, businessAccountId } = creds;
 
     if (!businessAccountId) {
@@ -70,7 +58,6 @@ export async function GET(request: Request, { params }: Params) {
     });
 
     const metaTemplates = await metaClient.getTemplates(businessAccountId);
-    console.log('[templates] Meta response:', metaTemplates);
 
     const templatesToUpsert = metaTemplates.map(t => ({
       organization_id: profile.organization_id,
@@ -84,19 +71,10 @@ export async function GET(request: Request, { params }: Params) {
       components: JSON.stringify(t.components),
     }));
 
-    console.log('[templates] Upserting:', JSON.stringify(templatesToUpsert, null, 2));
-    
     if (templatesToUpsert.length > 0) {
-      const { data: upsertResult, error: upsertError } = await supabase
+      await supabase
         .from('whatsapp_templates')
-        .upsert(templatesToUpsert, { onConflict: 'organization_id,meta_template_id' })
-        .select();
-      
-      console.log('[templates] Upsert result:', { data: upsertResult, error: upsertError });
-      
-      if (upsertError) {
-        console.error('[templates] Upsert error:', upsertError);
-      }
+        .upsert(templatesToUpsert, { onConflict: 'organization_id,meta_template_id' });
     }
 
     const { data: savedTemplates } = await supabase
@@ -105,8 +83,6 @@ export async function GET(request: Request, { params }: Params) {
       .eq('instance_id', instanceId)
       .eq('status', 'APPROVED')
       .order('name');
-
-    console.log('[templates] Saved templates:', savedTemplates);
 
     return NextResponse.json({ data: savedTemplates ?? [] });
   } catch (err) {

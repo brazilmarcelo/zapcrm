@@ -24,13 +24,9 @@ export async function GET(request: Request) {
   const challenge = searchParams.get('hub.challenge');
 
   if (mode === 'subscribe') {
-    // For now, accept any token - in production, verify against stored token
     if (token && token.length > 0) {
-      console.log('[whatsapp-webhook] Webhook verified successfully');
       return new Response(challenge, { status: 200 });
     }
-
-    console.warn('[whatsapp-webhook] Verification failed - no token provided');
     return NextResponse.json({ error: 'Verification failed' }, { status: 403 });
   }
 
@@ -39,20 +35,16 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const rawBody = await request.text();
-
   const supabase = createStaticAdminClient();
 
   let payload: MetaWebhookPayload;
   try {
     payload = JSON.parse(rawBody);
   } catch {
-    console.error('[whatsapp-webhook] Invalid JSON body');
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
   try {
-    console.log('[whatsapp-webhook] Received payload:', JSON.stringify(payload).slice(0, 500));
-    
     for (const entry of payload.entry) {
       const changes = entry.changes ?? [];
 
@@ -60,10 +52,7 @@ export async function POST(request: Request) {
         const value = change.value;
         const phoneNumberId = value.metadata?.phone_number_id;
 
-        if (!phoneNumberId) {
-          console.warn('[whatsapp-webhook] No phone_number_id in metadata');
-          continue;
-        }
+        if (!phoneNumberId) continue;
 
         const { data: instance } = await supabase
           .from('whatsapp_instances')
@@ -71,10 +60,7 @@ export async function POST(request: Request) {
           .eq('phone_number_id', phoneNumberId)
           .single();
 
-        if (!instance) {
-          console.warn('[whatsapp-webhook] No instance found for phone_number_id:', phoneNumberId);
-          continue;
-        }
+        if (!instance) continue;
 
         if (value.messages) {
           for (const msg of value.messages) {
@@ -92,7 +78,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('[whatsapp-webhook] Error processing webhook:', err);
+    console.error('[whatsapp-webhook] Error:', err);
     return NextResponse.json({ success: true });
   }
 }
@@ -106,17 +92,8 @@ async function handleIncomingMessage(
   const messageId = msg.id;
   const timestamp = msg.timestamp;
 
-  console.log('[whatsapp-webhook] handleIncomingMessage:', { from, messageId, timestamp, instanceId: instance.id });
-
-  if (!from || !messageId) {
-    console.warn('[whatsapp-webhook] Skipping message - missing from or id');
-    return;
-  }
-
-  if (instance.phone_number === from) {
-    console.log('[whatsapp-webhook] Skipping message from self');
-    return;
-  }
+  if (!from || !messageId) return;
+  if (instance.phone_number === from) return;
 
   const organizationId = instance.organization_id as string;
   const instanceDbId = instance.id as string;
@@ -204,16 +181,8 @@ async function handleIncomingMessage(
     status: 'open',
   });
 
-  console.log('[whatsapp-webhook] AI Check:', {
-    instanceId: instanceDbId,
-    aiEnabled: instance.ai_enabled,
-    conversationId: conversation.id,
-    aiActive: conversation.ai_active,
-  });
-
   const aiEnabled = instance.ai_enabled as boolean;
   if (aiEnabled && conversation.ai_active) {
-    console.log('[whatsapp-webhook] Calling AI agent for conversation:', conversation.id);
     try {
       await processIncomingMessage({
         supabase,
@@ -227,10 +196,8 @@ async function handleIncomingMessage(
         incomingMessage: insertedMessage,
       });
     } catch (err) {
-      console.error('[whatsapp-ai] Error processing message:', err);
+      console.error('[whatsapp-ai] Error:', err);
     }
-  } else {
-    console.log('[whatsapp-webhook] AI not triggered:', { aiEnabled, aiActive: conversation.ai_active });
   }
 }
 
@@ -250,7 +217,6 @@ async function handleStatusUpdate(
   const messageId = status.id;
 
   if (newStatus && messageId) {
-    console.log(`[whatsapp-webhook] Updating message ${messageId} status to ${newStatus}`);
     await updateMessageStatus(supabase, messageId, newStatus);
   }
 }

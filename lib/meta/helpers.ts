@@ -26,8 +26,6 @@ export async function getMetaCredentials(
       .eq('id', instanceId)
       .single();
 
-    console.log('[getMetaCredentials] Instance query:', { instanceId, error: error?.message, hasToken: !!instance?.access_token_encrypted, tokenPreview: instance?.access_token_encrypted?.slice(0, 20) });
-
     if (!error && instance?.access_token_encrypted && instance?.phone_number_id) {
       return {
         accessToken: instance.access_token_encrypted,

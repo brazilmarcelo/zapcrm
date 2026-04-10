@@ -32,21 +32,15 @@ export class MetaWhatsAppClient {
       ...options.headers,
     };
 
-    console.log('[Meta API] Request:', { method: options.method || 'GET', url, body: options.body });
-
     const response = await fetch(url, { ...options, headers });
-    const status = response.status;
-    const statusText = response.statusText;
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       const errorMessage = error.error?.message || JSON.stringify(error);
-      console.error('[Meta API] Error:', { status, statusText, error: errorMessage });
-      throw new Error(`Meta API error ${status}: ${errorMessage}`);
+      throw new Error(`Meta API error ${response.status}: ${errorMessage}`);
     }
 
     const text = await response.text();
-    console.log('[Meta API] Response:', { status, length: text.length, preview: text.slice(0, 200) });
     if (!text) return {} as T;
     return JSON.parse(text) as T;
   }
@@ -80,8 +74,8 @@ export class MetaWhatsAppClient {
   async sendTemplate(
     to: string,
     templateName: string,
-    language: string,
-    components?: Array<{ type: string; parameters?: Array<{ type: string; text?: string }> }>
+    language: string = 'pt_BR',
+    components?: Array<{ type: string; parameters?: Array<{ type: string; text: string }> }>
   ): Promise<MetaSendMessageResponse> {
     const payload: MetaSendMessageRequest = {
       messaging_product: 'whatsapp',
@@ -90,7 +84,7 @@ export class MetaWhatsAppClient {
       template: {
         name: templateName,
         language: { code: language },
-        components: components as any,
+        ...(components && { components }),
       },
     };
 
@@ -100,21 +94,14 @@ export class MetaWhatsAppClient {
   async sendMedia(
     to: string,
     mediaType: 'image' | 'audio' | 'video' | 'document',
-    media: { id?: string; link?: string },
-    caption?: string,
-    filename?: string
+    mediaId: string,
+    caption?: string
   ): Promise<MetaSendMessageResponse> {
-    const mediaPayload = { ...media };
-    if (caption) (mediaPayload as Record<string, unknown>).caption = caption;
-    if (filename && mediaType === 'document') {
-      (mediaPayload as Record<string, unknown>).filename = filename;
-    }
-
     const payload: MetaSendMessageRequest = {
       messaging_product: 'whatsapp',
       to,
       type: mediaType,
-      [mediaType]: mediaPayload,
+      [mediaType]: { id: mediaId, ...(caption && { caption }) },
     };
 
     return this.sendMessage(payload);
@@ -140,19 +127,15 @@ export class MetaWhatsAppClient {
     formData.append('messaging_product', 'whatsapp');
     formData.append('type', type);
 
-    return this.request('/${this.phoneNumberId}/media', {
+    const response = await this.request<{ id: string }>(`/${this.phoneNumberId}/media`, {
       method: 'POST',
-      body: formData as unknown as string,
+      body: formData as any,
     });
+
+    return response;
   }
 }
 
 export function createMetaClient(credentials: MetaCredentials): MetaWhatsAppClient {
-  if (!credentials.accessToken) {
-    throw new Error('Access token is required');
-  }
-  if (!credentials.phoneNumberId) {
-    throw new Error('Phone number ID is required');
-  }
   return new MetaWhatsAppClient(credentials);
 }
