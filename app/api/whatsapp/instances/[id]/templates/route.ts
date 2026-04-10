@@ -85,6 +85,8 @@ export async function GET(request: Request, { params }: Params) {
     }));
 
     console.log('[templates] Upserting:', JSON.stringify(templatesToUpsert, null, 2));
+    
+    if (templatesToUpsert.length > 0) {
       const { data: upsertResult, error: upsertError } = await supabase
         .from('whatsapp_templates')
         .upsert(templatesToUpsert, { onConflict: 'organization_id,meta_template_id' })
