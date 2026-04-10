@@ -21,7 +21,6 @@ import {
   BotOff,
   User,
   Image as ImageIcon,
-  FileText,
   Mic,
   MapPin,
   Check,
@@ -32,7 +31,7 @@ import {
   Phone,
   MoreVertical,
   Brain,
-  FileTemplate,
+  FileText,
   X,
 } from 'lucide-react';
 
@@ -266,7 +265,7 @@ export function MessageThread({ conversation, onToggleIntelligence, showIntellig
             className="p-2.5 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors shrink-0"
             title="Enviar Template"
           >
-            <FileTemplate className="w-5 h-5" />
+            <FileText className="w-5 h-5" />
           </button>
           <textarea
             ref={inputRef}
@@ -337,7 +336,7 @@ function TemplateModal({ instanceId, conversationId, onClose }: { instanceId: st
             </div>
           ) : !templates || templates.length === 0 ? (
             <div className="text-center py-8 text-slate-500">
-              <FileTemplate className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p>Nenhum template encontrado.</p>
               <p className="text-sm mt-1">Crie templates no WhatsApp Manager.</p>
             </div>
