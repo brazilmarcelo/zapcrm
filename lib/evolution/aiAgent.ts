@@ -423,7 +423,7 @@ async function generateAIResponse(
     .maybeSingle();
 
   const provider = orgSettings?.ai_provider ?? 'google';
-  const model = orgSettings?.ai_model ?? 'gemini-2.5-flash';
+  const model = orgSettings?.ai_model ?? 'gpt-4o-mini';
 
   let apiKey: string | undefined;
   if (provider === 'google') apiKey = orgSettings?.ai_google_key || userSettings?.ai_google_key;
@@ -1328,7 +1328,7 @@ async function generateAndSaveSummary(
     .single();
 
   const provider = orgSettings?.ai_provider ?? 'google';
-  const model = orgSettings?.ai_model ?? 'gemini-2.5-flash';
+  const model = orgSettings?.ai_model ?? 'gpt-4o-mini';
 
   let apiKey: string | undefined;
   if (provider === 'google') apiKey = orgSettings?.ai_google_key;

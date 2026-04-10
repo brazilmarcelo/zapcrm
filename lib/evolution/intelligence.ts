@@ -251,7 +251,7 @@ export async function analyzeWithAI(
     .single();
 
   const provider = orgSettings?.ai_provider ?? 'google';
-  const model = orgSettings?.ai_model ?? 'gemini-2.5-flash';
+  const model = orgSettings?.ai_model ?? 'gpt-4o-mini';
 
   let apiKey: string | undefined;
   if (provider === 'google') apiKey = orgSettings?.ai_google_key;
@@ -473,7 +473,7 @@ export async function generateFollowUpMessage(
     .single();
 
   const provider = orgSettings?.ai_provider ?? 'google';
-  const model = orgSettings?.ai_model ?? 'gemini-2.5-flash';
+  const model = orgSettings?.ai_model ?? 'gpt-4o-mini';
 
   let apiKey: string | undefined;
   if (provider === 'google') apiKey = orgSettings?.ai_google_key;
