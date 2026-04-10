@@ -80,14 +80,21 @@ export async function GET(request: Request, { params }: Params) {
       language: t.language,
       category: t.category,
       status: t.status,
-      content: { components: t.components },
-      components: t.components,
+      content: JSON.stringify({ components: t.components }),
+      components: JSON.stringify(t.components),
     }));
 
-    if (templatesToUpsert.length > 0) {
-      await supabase
+    console.log('[templates] Upserting:', JSON.stringify(templatesToUpsert, null, 2));
+      const { data: upsertResult, error: upsertError } = await supabase
         .from('whatsapp_templates')
-        .upsert(templatesToUpsert, { onConflict: 'organization_id,meta_template_id' });
+        .upsert(templatesToUpsert, { onConflict: 'organization_id,meta_template_id' })
+        .select();
+      
+      console.log('[templates] Upsert result:', { data: upsertResult, error: upsertError });
+      
+      if (upsertError) {
+        console.error('[templates] Upsert error:', upsertError);
+      }
     }
 
     const { data: savedTemplates } = await supabase
