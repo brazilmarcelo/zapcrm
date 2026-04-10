@@ -6,6 +6,8 @@ import {
   useWhatsAppMessages,
   useSendWhatsAppMessage,
   useWhatsAppAIControl,
+  useWhatsAppTemplates,
+  useSendWhatsAppTemplate,
 } from '@/lib/query/whatsapp';
 import { createClient } from '@/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -30,6 +32,8 @@ import {
   Phone,
   MoreVertical,
   Brain,
+  FileTemplate,
+  X,
 } from 'lucide-react';
 
 interface MessageThreadProps {
@@ -41,9 +45,11 @@ interface MessageThreadProps {
 export function MessageThread({ conversation, onToggleIntelligence, showIntelligenceActive }: MessageThreadProps) {
   const { data: messages, isLoading } = useWhatsAppMessages(conversation.id);
   const sendMutation = useSendWhatsAppMessage();
+  const sendTemplateMutation = useSendWhatsAppTemplate();
   const aiControl = useWhatsAppAIControl();
   const [text, setText] = useState('');
   const [showMenu, setShowMenu] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -255,6 +261,13 @@ export function MessageThread({ conversation, onToggleIntelligence, showIntellig
           </div>
         )}
         <div className="flex items-end gap-2">
+          <button
+            onClick={() => setShowTemplates(true)}
+            className="p-2.5 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors shrink-0"
+            title="Enviar Template"
+          >
+            <FileTemplate className="w-5 h-5" />
+          </button>
           <textarea
             ref={inputRef}
             value={text}
@@ -276,6 +289,80 @@ export function MessageThread({ conversation, onToggleIntelligence, showIntellig
               <Send className="w-5 h-5" />
             )}
           </button>
+        </div>
+      </div>
+
+      {/* Template Modal */}
+      {showTemplates && (
+        <TemplateModal 
+          instanceId={conversation.instance_id} 
+          conversationId={conversation.id}
+          onClose={() => setShowTemplates(false)} 
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Template Modal
+// ---------------------------------------------------------------------------
+
+function TemplateModal({ instanceId, conversationId, onClose }: { instanceId: string; conversationId: string; onClose: () => void }) {
+  const { data: templates, isLoading } = useWhatsAppTemplates(instanceId);
+  const sendTemplateMutation = useSendWhatsAppTemplate();
+
+  const handleSendTemplate = async (templateName: string, language: string) => {
+    await sendTemplateMutation.mutateAsync({
+      conversationId,
+      templateName,
+      language,
+    });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="bg-white dark:bg-dark-card rounded-2xl w-full max-w-md mx-4 max-h-[80vh] overflow-hidden">
+        <div className="p-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+          <h3 className="font-semibold text-slate-900 dark:text-white">Selecionar Template</h3>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-4 overflow-y-auto max-h-96">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+            </div>
+          ) : !templates || templates.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              <FileTemplate className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p>Nenhum template encontrado.</p>
+              <p className="text-sm mt-1">Crie templates no WhatsApp Manager.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {templates.map((template) => (
+                <button
+                  key={template.id}
+                  onClick={() => handleSendTemplate(template.name, template.language)}
+                  disabled={sendTemplateMutation.isPending}
+                  className="w-full p-3 text-left rounded-xl border border-slate-200 dark:border-white/10 hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-slate-900 dark:text-white">{template.name}</span>
+                    <span className="text-xs px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-500">
+                      {template.language}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    {template.category}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
