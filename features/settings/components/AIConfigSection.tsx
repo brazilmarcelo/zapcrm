@@ -10,9 +10,14 @@ const AI_PROVIDERS = [
         id: 'google',
         name: 'Google Gemini',
         models: [
-            { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', description: 'Alta inteligência', price: '$1.25 / $10' },
-            { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', description: 'Recomendado - Estável e econômico', price: '$0.15 / $0.60' },
-            { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', description: 'Mais recente', price: '$0 / $0' },
+            { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', description: 'Alta inteligência - Contexto Longo', price: '$4 / $18' },
+            { id: 'gemini-3.1-flash', name: 'Gemini 3.1 Flash', description: 'Mais recente - Recomended', price: '$0.75 / $4.50' },
+            { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash-Lite', description: 'Mais econômico', price: '$0.25 / $1.50' },
+            { id: 'gemini-3-flash', name: 'Gemini 3 Flash', description: 'Novo - Rápido', price: '$0.50 / $3' },
+            { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', description: 'Alta inteligência', price: '$2.50 / $15' },
+            { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', description: 'Estável e econômico', price: '$0.30 / $2.50' },
+            { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash-Lite', description: 'Ultra econômico', price: '$0.10 / $0.40' },
+            { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', description: 'Mais recente', price: '$0.10 / $0.40' },
             { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', description: 'Alta capacidade', price: '$1.25 / $5' },
             { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', description: 'Estável', price: '$0.075 / $0.30' },
         ]
