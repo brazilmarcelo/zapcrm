@@ -115,8 +115,30 @@ export class MetaWhatsAppClient {
   }
 
   async getMediaUrl(mediaId: string): Promise<{ url: string; mime_type?: string }> {
-    const response = await this.request<{ url: string; mime_type: string }>(`/${mediaId}`);
+    // Include phone_number_id for media ID lookup
+    const response = await this.request<{ url: string; mime_type: string }>(`/${mediaId}?phone_number_id=${this.phoneNumberId}`);
     return response;
+  }
+
+  /**
+   * Download media directly from Meta's media URL
+   * The media URL from getMediaUrl expires after ~5 minutes, so we need to fetch fresh URL
+   */
+  async downloadMedia(mediaUrl: string): Promise<{ data: ArrayBuffer; contentType: string }> {
+    const response = await fetch(mediaUrl, {
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to download media: ${response.status} ${response.statusText}`);
+    }
+
+    return {
+      data: await response.arrayBuffer(),
+      contentType: response.headers.get('content-type') || 'application/octet-stream',
+    };
   }
 
   async uploadMedia(

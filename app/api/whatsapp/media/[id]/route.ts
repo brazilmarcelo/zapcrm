@@ -31,91 +31,66 @@ export async function GET(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'No media URL' }, { status: 400 });
     }
 
-    // If media_url is not an HTTP URL (it's a Meta ID), fetch the actual URL
-    // OR if it's a Facebook lookaside URL, we need to re-fetch with token
+    // Find the instance for this conversation to get credentials
+    const { data: conversation, error: convError } = await supabase
+      .from('whatsapp_conversations')
+      .select('instance_id, organization_id')
+      .eq('id', message.conversation_id)
+      .single();
+
+    if (convError || !conversation?.instance_id) {
+      console.error('[media-proxy] Conversation error:', convError);
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
+
+    const { data: instance } = await supabase
+      .from('whatsapp_instances')
+      .select('id, organization_id')
+      .eq('id', conversation.instance_id)
+      .single();
+
+    if (!instance) {
+      return NextResponse.json({ error: 'Instance not found' }, { status: 404 });
+    }
+
+    // Get credentials
+    const creds = await getMetaCredentials(supabase, instance.organization_id, instance.id);
+    const metaClient = createMetaClient(creds);
+
     let mediaUrl = message.media_url;
-    let mimeType = message.media_mime_type || 'application/octet-stream';
     let filename = message.media_filename || `${message.message_type}-${messageId}`;
 
     console.log('[media-proxy] Media check:', { 
       mediaUrl: mediaUrl?.slice(0, 80), 
-      isHttp: mediaUrl?.startsWith('http'),
       isLookaside: mediaUrl?.includes('lookaside.fbsbx.com'),
-      mimeType 
     });
 
-    // Check if we need to fetch fresh URL (it's a lookaside URL or just an ID)
-    const needsToken = !mediaUrl.startsWith('http') || mediaUrl.includes('lookaside.fbsbx.com');
+    // If it's a lookaside URL, we need to get fresh URL with token
+    if (mediaUrl.includes('lookaside.fbsbx.com')) {
+      // Extract media ID from the lookaside URL
+      const match = mediaUrl.match(/mid=([^&]+)/);
+      if (match) {
+        const mediaId = match[1];
+        console.log('[media-proxy] Extracted mediaId:', mediaId);
+        
+        // Get fresh URL from Meta API
+        const mediaData = await metaClient.getMediaUrl(mediaId);
+        console.log('[media-proxy] Got fresh media URL');
+        
+        mediaUrl = mediaData.url;
+      }
+    }
+
+    // Now download the media using Meta's API (which includes auth)
+    console.log('[media-proxy] Downloading media from:', mediaUrl?.slice(0, 50));
+    const mediaDownload = await metaClient.downloadMedia(mediaUrl);
     
-    if (needsToken) {
-      // Find the instance for this conversation to get credentials
-      const { data: conversation, error: convError } = await supabase
-        .from('whatsapp_conversations')
-        .select('instance_id, organization_id')
-        .eq('id', message.conversation_id)
-        .single();
-
-      console.log('[media-proxy] Conversation lookup:', { conversationId: message.conversation_id, convError, conversation });
-
-      if (convError || !conversation?.instance_id) {
-        console.error('[media-proxy] Conversation error:', convError);
-        return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
-      }
-
-      const { data: instance } = await supabase
-        .from('whatsapp_instances')
-        .select('id, organization_id')
-        .eq('id', conversation.instance_id)
-        .single();
-
-      if (!instance) {
-        return NextResponse.json({ error: 'Instance not found' }, { status: 404 });
-      }
-
-      // Get credentials to fetch fresh media URL
-      const creds = await getMetaCredentials(supabase, instance.organization_id, instance.id);
-      const metaClient = createMetaClient(creds);
-      
-      // If mediaUrl is the full Facebook URL, extract just the ID
-      let mediaId = mediaUrl;
-      if (mediaUrl.includes('lookaside.fbsbx.com')) {
-        const match = mediaUrl.match(/mid=([^&]+)/);
-        if (match) {
-          mediaId = match[1];
-        }
-      }
-      
-      console.log('[media-proxy] Fetching fresh URL for mediaId:', mediaId);
-      const mediaData = await metaClient.getMediaUrl(mediaId);
-      
-      mediaUrl = mediaData.url;
-      if (mediaData.mime_type) {
-        mimeType = mediaData.mime_type;
-      }
-    }
-
-    // Download the file from the source
-    const response = await fetch(mediaUrl, {
-      headers: {
-        // Some sources require user-agent
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-    });
-
-    if (!response.ok) {
-      console.error('[media-proxy] Failed to download:', response.status, response.statusText);
-      return NextResponse.json({ error: 'Failed to download media' }, { status: 500 });
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    // Determine content type
-    const contentType = getContentType(mimeType, mediaUrl, message.message_type);
+    const buffer = Buffer.from(mediaDownload.data);
+    console.log('[media-proxy] Downloaded, size:', buffer.length, 'type:', mediaDownload.contentType);
 
     // Set appropriate headers
     const headers = new Headers();
-    headers.set('Content-Type', contentType);
+    headers.set('Content-Type', mediaDownload.contentType);
     headers.set('Content-Length', buffer.length.toString());
     headers.set('Content-Disposition', `inline; filename="${filename}"`);
     headers.set('Cache-Control', 'public, max-age=3600');
@@ -126,33 +101,6 @@ export async function GET(request: Request, { params }: Params) {
     });
   } catch (err) {
     console.error('[media-proxy] Error:', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal error: ' + String(err) }, { status: 500 });
   }
-}
-
-function getContentType(mimeType: string, url: string, messageType: string): string {
-  // If we have a valid mime type, use it
-  if (mimeType && mimeType !== 'application/octet-stream') {
-    return mimeType;
-  }
-
-  // Try to determine from URL
-  const urlLower = url.toLowerCase();
-  
-  if (urlLower.includes('.jpg') || urlLower.includes('.jpeg')) return 'image/jpeg';
-  if (urlLower.includes('.png')) return 'image/png';
-  if (urlLower.includes('.gif')) return 'image/gif';
-  if (urlLower.includes('.webp')) return 'image/webp';
-  if (urlLower.includes('.mp4') || urlLower.includes('.3gp')) return 'video/mp4';
-  if (urlLower.includes('.mp3') || urlLower.includes('.mpeg')) return 'audio/mpeg';
-  if (urlLower.includes('.ogg')) return 'audio/ogg';
-  if (urlLower.includes('.pdf')) return 'application/pdf';
-  
-  // Fallback based on message type
-  if (messageType === 'image') return 'image/jpeg';
-  if (messageType === 'audio') return 'audio/ogg';
-  if (messageType === 'video') return 'video/mp4';
-  if (messageType === 'document') return 'application/octet-stream';
-  
-  return 'application/octet-stream';
 }
