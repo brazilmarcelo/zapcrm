@@ -36,16 +36,25 @@ export async function GET(request: Request, { params }: Params) {
     let mimeType = message.media_mime_type || 'application/octet-stream';
     let filename = message.media_filename || `${message.message_type}-${messageId}`;
 
+    console.log('[media-proxy] Media check:', { 
+      mediaUrl: mediaUrl?.slice(0, 50), 
+      isHttp: mediaUrl?.startsWith('http'),
+      mimeType 
+    });
+
     if (!mediaUrl.startsWith('http')) {
       // It's a Meta media ID - get the actual URL
       // Find the instance for this conversation
-      const { data: conversation } = await supabase
+      const { data: conversation, error: convError } = await supabase
         .from('whatsapp_conversations')
         .select('instance_id, organization_id')
         .eq('id', message.conversation_id)
         .single();
 
-      if (!conversation?.instance_id) {
+      console.log('[media-proxy] Conversation lookup:', { conversationId: message.conversation_id, convError, conversation });
+
+      if (convError || !conversation?.instance_id) {
+        console.error('[media-proxy] Conversation error:', convError);
         return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
       }
 
