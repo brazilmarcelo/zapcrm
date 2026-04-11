@@ -862,18 +862,33 @@ export async function processIncomingMessage(ctx: AIAgentContext): Promise<void>
   if (!freshConv || !freshConv.ai_active) return;
 
   // Check if a newer customer message arrived after ours
+  const messageTimestamp = incomingMessage.created_at || incomingMessage.whatsapp_timestamp || new Date().toISOString();
   const { data: newerMessages } = await supabase
     .from('whatsapp_messages')
     .select('id')
     .eq('conversation_id', conversation.id)
     .eq('from_me', false)
-    .gt('created_at', incomingMessage.created_at || new Date().toISOString())
+    .gt('created_at', messageTimestamp)
     .limit(1);
 
   console.log('[ai-agent] Newer messages check:', { count: newerMessages?.length });
 
   if (newerMessages && newerMessages.length > 0) {
     console.log('[ai-agent] Newer message arrived, deferring to its webhook', conversation.id);
+    return;
+  }
+
+  // Check if we already responded to this specific message (prevent duplicates)
+  const { data: existingResponse } = await supabase
+    .from('whatsapp_messages')
+    .select('id')
+    .eq('conversation_id', conversation.id)
+    .eq('from_me', true)
+    .eq('context_message_id', incomingMessage.meta_message_id || incomingMessage.id)
+    .limit(1);
+
+  if (existingResponse && existingResponse.length > 0) {
+    console.log('[ai-agent] Already responded to this message, skipping', conversation.id, incomingMessage.id);
     return;
   }
 
@@ -1333,12 +1348,14 @@ async function sendAIReply(
   instance: AIAgentContext['instance'],
   conversation: WhatsAppConversation,
   text: string,
+  contextMessageId?: string,
 ): Promise<WhatsAppMessage | null> {
   console.log('[ai-agent] sendAIReply called:', { phone: conversation.phone, isMeta: !!(instance as any).phone_number_id && !!(instance as any).access_token });
 
   const isMeta = !!(instance as any).phone_number_id && !!(instance as any).access_token;
 
   let messageId: string | undefined;
+  const incomingMsgId = contextMessageId || (instance as any).incomingMessageId;
 
   try {
     const chunks = splitIntoParagraphChunks(text, 2);
@@ -1389,6 +1406,7 @@ async function sendAIReply(
         from_me: true,
         message_type: 'text',
         text_body: chunks[i],
+        context_message_id: incomingMsgId,
         status: 'sent',
         sent_by: 'ai_agent',
         whatsapp_timestamp: new Date().toISOString(),

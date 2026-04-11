@@ -204,6 +204,49 @@ A IA agora verifica mensagens já processadas (marcadas com `[Áudio transcrito]
 ### Áudio/Imagem Não Abre
 O sistema usa proxy `/api/whatsapp/media/[id]` para baixar mídia do Facebook e servir ao navegador (resolve CORS).
 
+O proxy:
+1. Recebe o ID da mensagem como parâmetro
+2. Busca a mensagem no banco para obter o `media_url` original
+3. Se for URL do Facebook (`lookaside.fbsbx.com`), extrai o `media_id`
+4. Chama `metaClient.getMediaUrl(mediaId)` para obter URL fresca (validade ~5 min)
+5. Faz download via `metaClient.downloadMedia(mediaUrl)` com Bearer token
+6. Serve o conteúdo ao navegador com headers apropriados
+
+---
+
+## Arquivos Modificados para Suporte Meta API
+
+### API Routes
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `webhook/route.ts` | Já configurado para Meta API |
+| `media/[id]/route.ts` | Proxy para mídia com Bearer auth |
+| `instances/route.ts` | Suporta criação via Meta ou Evolution |
+| `instances/[id]/templates/route.ts` | Busca templates da Meta |
+| `conversations/[id]/send/route.ts` | Detecta Meta vs Evolution |
+| `conversations/[id]/send-template/route.ts` | Envia template via Meta |
+| `conversations/[id]/manual-followup/route.ts` | **AJUSTADO**: Suporta Meta e Evolution |
+
+### Bibliotecas
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `lib/meta/client.ts` | Client completo com sendText, sendTemplate, sendMedia, getMediaUrl, downloadMedia, uploadMedia, getTemplates |
+| `lib/meta/helpers.ts` | getMetaCredentials, verifyWebhookSignature, generateWebhookVerifyToken |
+| `lib/meta/types.ts` | Tipos completos |
+| `lib/evolution/followUpProcessor.ts` | **AJUSTADO**: Detecta se usa Meta ou Evolution e envia pelo método correto |
+| `lib/evolution/aiAgent.ts` | Suporta ambos os métodos |
+
+### Fluxo de Follow-up (Ajustado)
+
+```
+1. processFollowUps() detecta se instance.phone_number_id existe
+2. Se sim → usa getMetaCredentials() + createMetaClient()
+3. Se não → usa Evolution API (evolution.sendText)
+4. Salva meta_message_id ou evolution_message_id conforme o caso
+```
+
 ---
 
 ## Comandos Úteis
