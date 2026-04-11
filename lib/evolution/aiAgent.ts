@@ -86,7 +86,17 @@ async function buildConversationContext(
   conversationId: string,
   limit = 20,
 ): Promise<string> {
-  const messages = await getMessages(supabase, conversationId, { limit });
+  // Get recent messages, excluding processed transcriptions to avoid duplicates
+  const { data: messages } = await supabase
+    .from('whatsapp_messages')
+    .select('id, from_me, text_body, message_type')
+    .eq('conversation_id', conversationId)
+    .not('text_body', 'like', '[Áudio transcrito]:%')
+    .not('text_body', 'like', '[Imagem analisada]:%')
+    .order('created_at', { ascending: true })
+    .limit(limit);
+
+  if (!messages) return '';
 
   return messages
     .map((msg) => {
@@ -946,11 +956,14 @@ async function _executeAIAfterBatch(ctx: AIAgentContext, conversation: WhatsAppC
   // =========================================================================
 
   // Fetch all unread messages from the customer to form the complete "incomingText"
+  // Only fetch messages that haven't been processed by AI yet
   const { data: recentMsgs } = await supabase
     .from('whatsapp_messages')
     .select('id, text_body, message_type, media_url, media_caption, media_mime_type, meta_message_id, evolution_message_id')
     .eq('conversation_id', conversation.id)
     .eq('from_me', false)
+    .not('text_body', 'like', '[Áudio transcrito]:%')
+    .not('text_body', 'like', '[Imagem analisada]:%')
     .order('created_at', { ascending: false })
     .limit(conversation.unread_count || 1);
 
