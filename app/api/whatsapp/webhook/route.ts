@@ -97,6 +97,18 @@ async function handleIncomingMessage(
   if (!from || !messageId) return;
   if (instance.phone_number === from) return;
 
+  // Check if this message was already processed (prevent duplicates from Meta retries)
+  const { data: existingMsg } = await supabase
+    .from('whatsapp_messages')
+    .select('id')
+    .eq('meta_message_id', messageId)
+    .limit(1);
+
+  if (existingMsg && existingMsg.length > 0) {
+    console.log('[whatsapp-webhook] Message already processed, skipping:', messageId);
+    return;
+  }
+
   const organizationId = instance.organization_id as string;
   const instanceDbId = instance.id as string;
 
