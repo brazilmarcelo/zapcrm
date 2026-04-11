@@ -174,21 +174,29 @@ async function handleIncomingMessage(
     whatsapp_timestamp: whatsappTimestamp,
   });
 
-  // For audio/image/video/document, fetch the actual media URL from Meta
+  // For audio/image/video/document, fetch the actual media URL from Meta BEFORE continuing
   if (mediaUrl && (messageType === 'audio' || messageType === 'image' || messageType === 'video' || messageType === 'document')) {
     try {
+      console.log('[whatsapp-webhook] Fetching media URL for:', messageType, 'ID:', mediaUrl);
       const creds = await getMetaCredentials(supabase, organizationId, instanceDbId);
       const metaClient = createMetaClient(creds);
       const mediaData = await metaClient.getMediaUrl(mediaUrl);
+      console.log('[whatsapp-webhook] Media data:', mediaData);
       
       if (mediaData?.url) {
-        await supabase
+        const { error: updateError } = await supabase
           .from('whatsapp_messages')
           .update({ 
             media_url: mediaData.url,
             media_mime_type: mediaData.mime_type || mediaMimeType
           })
           .eq('id', insertedMessage.id);
+        
+        if (updateError) {
+          console.error('[whatsapp-webhook] Failed to update media_url:', updateError);
+        } else {
+          console.log('[whatsapp-webhook] Updated media_url for message:', insertedMessage.id);
+        }
         
         // Update local variable for AI processing
         mediaUrl = mediaData.url;
