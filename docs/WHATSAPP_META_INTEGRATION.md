@@ -1,13 +1,16 @@
-# VacinaCRM - Integração WhatsApp Meta Cloud API (WABA/COEX)
+# VacinaCRM - Integração WhatsApp Meta Cloud API
 
 ## Visão Geral do Projeto
 
-Este documento descreve a integração do VacinaCRM com a Meta WhatsApp Cloud API (WhatsApp Business API - WABA/COEX), substituindo a Evolution API anterior.
+Este documento descreve a integração completa do VacinaCRM com a Meta WhatsApp Cloud API (WhatsApp Business API - WABA/COEX), substituindo a Evolution API anterior.
 
-### Objetivos
-1. Enviar/receber mensagens via API oficial da Meta
-2. Implementar módulo de templates do WhatsApp
-3. Configurar janela de 24h (opt-in) para mensagens
+### Objetivos Implementados
+1. ✅ Enviar/receber mensagens via API oficial da Meta
+2. ✅ Implementar módulo de templates do WhatsApp
+3. ✅ Agente de IA para responder automaticamente
+4. ✅ Processamento de mídia (áudio, imagem, vídeo, documento)
+5. ✅ Transcrição de áudio via IA
+6. ✅ Análise de imagens via IA
 
 ---
 
@@ -30,15 +33,17 @@ Este documento descreve a integração do VacinaCRM com a Meta WhatsApp Cloud AP
 | `webhook/route.ts` | Recebe mensagens da Meta Cloud API |
 | `instances/route.ts` | Gerencia instâncias WhatsApp |
 | `instances/[id]/templates/route.ts` | Busca templates da Meta |
-| `conversations/[id]/send/route.ts` | Envia mensagens (Meta ou Evolution) |
-| `conversations/[id]/send-template/route.ts` | Envia templates |
+| `instances/[id]/ai-config/route.ts` | Configuração da IA |
+| `conversations/[id]/send/route.ts` | Envia mensagens |
+| `conversations/[id]/messages/route.ts` | Lista mensagens |
+| `media/[id]/route.ts` | Proxy para baixar mídia |
 
 ### Bibliotecas (lib/)
 
 | Arquivo | Descrição |
 |---------|-----------|
 | `lib/meta/client.ts` | Client da Meta Graph API |
-| `lib/meta/helpers.ts` | Funções helper (credenciais, formatação) |
+| `lib/meta/helpers.ts` | Funções helper (credenciais) |
 | `lib/meta/types.ts` | Tipos TypeScript |
 | `lib/evolution/aiAgent.ts` | Agente de IA (suporta Meta e Evolution) |
 
@@ -46,8 +51,9 @@ Este documento descreve a integração do VacinaCRM com a Meta WhatsApp Cloud AP
 
 | Arquivo | Descrição |
 |---------|-----------|
-| `features/whatsapp/components/MessageThread.tsx` | Thread de mensagens + modal de templates |
+| `features/whatsapp/components/MessageThread.tsx` | Thread de mensagens |
 | `features/whatsapp/components/WhatsAppAISettings.tsx` | Configurações de IA |
+| `features/settings/components/AIConfigSection.tsx` | Configuração de modelos IA |
 
 ---
 
@@ -57,16 +63,18 @@ Este documento descreve a integração do VacinaCRM com a Meta WhatsApp Cloud AP
 
 ```sql
 -- whatsapp_instances: instâncias WhatsApp
-- id, name, phone_number_id, access_token_encrypted, business_account_id, waba_id, ai_enabled
+- id, name, phone_number_id, access_token_encrypted, 
+- business_account_id, waba_id, ai_enabled
 
 -- whatsapp_conversations: conversas
 - id, phone, ai_active, unread_count, instance_id, organization_id
 
 -- whatsapp_messages: mensagens
-- id, meta_message_id, evolution_message_id, from_me, message_type, text_body
+- id, meta_message_id, from_me, message_type, text_body,
+- media_url, media_mime_type, media_caption, media_filename
 
 -- whatsapp_ai_config: configuração da IA por instância
-- id, instance_id, agent_name, system_prompt, greeting_message, memory_enabled, etc.
+- id, instance_id, agent_name, system_prompt, greeting_message, etc.
 
 -- whatsapp_templates: templates cacheados
 - id, name, language, category, status, meta_template_id
@@ -74,7 +82,16 @@ Este documento descreve a integração do VacinaCRM com a Meta WhatsApp Cloud AP
 
 ### Políticas RLS
 
-As tabelas `whatsapp_*` têm RLS habilitado. Para upserts via API, adicionar políticas de INSERT/UPDATE.
+As tabelas `whatsapp_*` têm RLS habilitado. Para upserts via API, foi adicionada política:
+
+```sql
+-- whatsapp_templates
+DROP POLICY IF EXISTS "whatsapp_templates_upsert" ON public.whatsapp_templates;
+CREATE POLICY "whatsapp_templates_upsert" ON public.whatsapp_templates
+  FOR INSERT WITH CHECK (
+    organization_id IN (SELECT organization_id FROM public.profiles WHERE id = auth.uid())
+  );
+```
 
 ---
 
@@ -85,7 +102,11 @@ As tabelas `whatsapp_*` têm RLS habilitado. Para upserts via API, adicionar pol
 ```
 1. Meta Cloud API → Webhook (POST /api/whatsapp/webhook)
 2. handleIncomingMessage() → processIncomingMessage()
-3. AI Agent executa → sendAIReply() → Meta Client sendText()
+3. Se ai_enabled=true e ai_active=true:
+   - Transcreve áudio (se necessário)
+   - Analisa imagem (se necessário)
+   - Gera resposta via IA
+   - Envia via Meta Client
 ```
 
 ### Envio (CRM → Celular)
@@ -113,17 +134,53 @@ As tabelas `whatsapp_*` têm RLS habilitado. Para upserts via API, adicionar pol
 2. Adicionar produto WhatsApp
 3. Configurar Webhook (URL: `https://vacinalcrm.vercel.app/api/whatsapp/webhook`)
 4. Gerar Temporary Access Token (validade ~24h)
-5. Atualizar token no banco quando expirar
+5. Atualizar token no banco quando expirar:
+```sql
+UPDATE whatsapp_instances 
+SET access_token_encrypted = 'NOVO_TOKEN'
+WHERE phone_number_id = 'SEU_PHONE_NUMBER_ID';
+```
 
 ---
 
 ## Configuração de Webhook na Meta
 
 1. **URL**: `https://vacinalcrm.vercel.app/api/whatsapp/webhook`
-2. **Verify Token**: `token123` (configurável)
+2. **Verify Token**: `token123`
 3. **Campos Inscrever**:
    - `messages` - Mensagens recebidas
    - `statuses` - Status de entrega
+
+---
+
+## Configuração da IA
+
+### Modelos Disponíveis
+
+**OpenAI:**
+- GPT-5, GPT-5 Mini, GPT-4.1, GPT-4.1 Mini
+- GPT-4o, GPT-4o Mini, GPT-4 Turbo
+- o3, o4-mini
+
+**Google Gemini:**
+- Gemini 3.1 Pro/Flash/Flash-Lite, Gemini 3 Flash
+- Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 2.0 Flash
+- Gemini 1.5 Pro/Flash
+
+**Anthropic Claude:**
+- Claude Opus 4.5, Sonnet 4.5, Haiku 4.5
+- Claude 3.5 Sonnet, Claude 3 Opus
+
+### Configurações por Instância
+
+Na tabela `whatsapp_ai_config`:
+- `ai_enabled` - Ativar/desativar IA
+- `system_prompt` - Prompt do sistema
+- `agent_name` - Nome do agente
+- `agent_tone` - Tom da resposta (professional, friendly, etc.)
+- `greeting_message` - Mensagem de boas-vindas
+- `working_hours_start/end` - Horário de funcionamento
+- `outside_hours_message` - Mensagem fora do horário
 
 ---
 
@@ -133,23 +190,19 @@ As tabelas `whatsapp_*` têm RLS habilitado. Para upserts via API, adicionar pol
 ```
 Error: Meta API error 401: Session has expired
 ```
-**Solução**: Gerar novo token e atualizar no banco:
-```sql
-UPDATE whatsapp_instances 
-SET access_token_encrypted = 'NOVO_TOKEN'
-WHERE phone_number_id = 'SEU_PHONE_NUMBER_ID';
+**Solução**: Gerar novo token e atualizar no banco.
+
+### Número Não Permitido
 ```
+Error: (#131030) Recipient phone number not in allowed list
+```
+**Solução**: Adicionar números na "Allowed Phone Numbers" no Meta for Developers.
 
-### Templates não aparecem
-1. Verificar se `business_account_id` está preenchido na instância
-2. Verificar se política RLS permite INSERT em `whatsapp_templates`
-3. Verificar logs: `[templates] Upsert result`
+### Mensagens Duplicadas
+A IA agora verifica mensagens já processadas (marcadas com `[Áudio transcrito]:` ou `[Imagem analisada]:`) para evitar duplicatas.
 
-### AI não responde
-1. Verificar se `ai_enabled = true` na instância
-2. Verificar se `ai_active = true` na conversa
-3. Verificar se existe registro em `whatsapp_ai_config`
-4. Consultar logs: `[ai-agent] Proceeding to execute AI`
+### Áudio/Imagem Não Abre
+O sistema usa proxy `/api/whatsapp/media/[id]` para baixar mídia do Facebook e servir ao navegador (resolve CORS).
 
 ---
 
