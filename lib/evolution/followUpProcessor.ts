@@ -28,6 +28,8 @@ import { getAIConfig, insertAILog, updateConversation, getConversation } from '@
 import { generateFollowUpMessage } from '@/lib/evolution/intelligence';
 import { createReservationClient } from '@/lib/reservations/client';
 import * as evolution from '@/lib/evolution/client';
+import { getMetaCredentials } from '@/lib/meta/helpers';
+import { createMetaClient } from '@/lib/meta/client';
 
 export interface ProcessResult {
   processed: number;
@@ -123,17 +125,25 @@ async function processOneFollowUp(
     return;
   }
 
-  // Get Evolution API URL from organization settings
-  const { data: orgSettings } = await supabase
-    .from('organization_settings')
-    .select('evolution_api_url')
-    .eq('organization_id', followUp.organization_id)
-    .single();
+  // Check if instance uses Meta API or Evolution API
+  const useMetaApi = !!(instance.phone_number_id && instance.access_token_encrypted);
 
-  if (!orgSettings?.evolution_api_url) {
-    await updateFollowUpStatus(supabase, followUp.id, 'failed');
-    result.failed++;
-    return;
+  // Get organization settings for Evolution API (only needed if not using Meta)
+  let orgSettings: { evolution_api_url?: string } | null = null;
+  if (!useMetaApi) {
+    const { data } = await supabase
+      .from('organization_settings')
+      .select('evolution_api_url')
+      .eq('organization_id', followUp.organization_id)
+      .single();
+
+    orgSettings = data;
+
+    if (!orgSettings?.evolution_api_url) {
+      await updateFollowUpStatus(supabase, followUp.id, 'failed');
+      result.failed++;
+      return;
+    }
   }
 
   // Get AI config
@@ -213,13 +223,6 @@ async function processOneFollowUp(
   }
   if (chunks.length === 0) chunks.push(message.trim());
 
-  // Send via Evolution API
-  const creds: evolution.EvolutionCredentials = {
-    baseUrl: orgSettings.evolution_api_url,
-    apiKey: instance.instance_token,
-    instanceName: instance.evolution_instance_name || instance.instance_id,
-  };
-
   let sentMsg: { id: string } | null = null;
 
   for (let i = 0; i < chunks.length; i++) {
@@ -227,10 +230,31 @@ async function processOneFollowUp(
       await new Promise((resolve) => setTimeout(resolve, 5000));
     }
 
-    const response = await evolution.sendText(creds, {
-      number: conversation.phone,
-      text: chunks[i],
-    });
+    let metaMessageId: string | undefined;
+    const isMetaApi = !!(instance.phone_number_id && instance.access_token_encrypted);
+
+    if (isMetaApi) {
+      // Send via Meta Cloud API
+      const metaCreds = await getMetaCredentials(supabase, followUp.organization_id, instance.id);
+      const metaClient = createMetaClient({
+        accessToken: metaCreds.accessToken,
+        phoneNumberId: metaCreds.phoneNumberId,
+      });
+      const response = await metaClient.sendText(conversation.phone, chunks[i]);
+      metaMessageId = response.messages?.[0]?.id;
+    } else {
+      // Send via Evolution API
+      const creds: evolution.EvolutionCredentials = {
+        baseUrl: orgSettings!.evolution_api_url!,
+        apiKey: instance.instance_token,
+        instanceName: instance.evolution_instance_name || instance.instance_id,
+      };
+      const response = await evolution.sendText(creds, {
+        number: conversation.phone,
+        text: chunks[i],
+      });
+      metaMessageId = response.key?.id;
+    }
 
     // Persist each chunk as a message
     const { data: msg } = await supabase
@@ -238,7 +262,8 @@ async function processOneFollowUp(
       .insert({
         conversation_id: followUp.conversation_id,
         organization_id: followUp.organization_id,
-        evolution_message_id: response.key?.id || undefined,
+        meta_message_id: isMetaApi ? metaMessageId : undefined,
+        evolution_message_id: !isMetaApi ? metaMessageId : undefined,
         from_me: true,
         message_type: 'text',
         text_body: chunks[i],

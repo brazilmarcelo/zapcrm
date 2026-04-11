@@ -3,6 +3,8 @@ import { createClient, createStaticAdminClient } from '@/lib/supabase/server';
 import { generateFollowUpMessage } from '@/lib/evolution/intelligence';
 import { sendText } from '@/lib/evolution/client';
 import { insertMessage, updateConversation } from '@/lib/supabase/whatsapp';
+import { getMetaCredentials } from '@/lib/meta/helpers';
+import { createMetaClient } from '@/lib/meta/client';
 
 export const maxDuration = 60;
 
@@ -94,27 +96,43 @@ export async function POST(
       config
     );
 
-    // 5. Send it via Evolution
-    const apiUrl = orgSettings?.evolution_api_url;
-    if (!apiUrl) throw new Error('Evolution API URL not configured');
+    // Check if instance uses Meta API or Evolution API
+    const useMetaApi = !!(instance.phone_number_id && instance.access_token_encrypted);
+    let metaMessageId: string | undefined;
 
-    const sentMsg = await sendText(
-      {
-        instanceName: instance.evolution_instance_name || instance.instance_id,
-        baseUrl: apiUrl,
-        apiKey: instance.instance_token,
-      },
-      {
-        number: conversation.phone,
-        text: aiMessage,
-      }
-    );
+    if (useMetaApi) {
+      // Send via Meta Cloud API
+      const metaCreds = await getMetaCredentials(supabase, orgId, instance.id);
+      const metaClient = createMetaClient({
+        accessToken: metaCreds.accessToken,
+        phoneNumberId: metaCreds.phoneNumberId,
+      });
+      const response = await metaClient.sendText(conversation.phone, aiMessage);
+      metaMessageId = response.messages?.[0]?.id;
+    } else {
+      // Send via Evolution API
+      const apiUrl = orgSettings?.evolution_api_url;
+      if (!apiUrl) throw new Error('Evolution API URL not configured');
 
-    // 6. Save sent message to DB
+      const sentMsg = await sendText(
+        {
+          instanceName: instance.evolution_instance_name || instance.instance_id,
+          baseUrl: apiUrl,
+          apiKey: instance.instance_token,
+        },
+        {
+          number: conversation.phone,
+          text: aiMessage,
+        }
+      );
+      metaMessageId = sentMsg?.key?.id;
+    }
+
+    // Save sent message to DB
     await insertMessage(supabase, {
       conversation_id: conversationId,
       organization_id: orgId,
-      evolution_message_id: sentMsg?.key?.id || crypto.randomUUID(),
+      meta_message_id: metaMessageId,
       from_me: true,
       sender_name: 'AI Agent (Manual)',
       message_type: 'text',
