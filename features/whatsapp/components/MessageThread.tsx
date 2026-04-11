@@ -418,37 +418,40 @@ function MessageContent({ message }: { message: WhatsAppMessage }) {
     case 'text':
       return <p className="text-sm whitespace-pre-wrap break-words">{message.text_body}</p>;
     case 'image':
+      const imageUrl = message.media_url && message.media_url.startsWith('http') ? message.media_url : null;
       return (
         <div>
-          {message.media_url && (
-            <img src={message.media_url} alt="Imagem" className="rounded-xl max-w-full mb-1" />
+          {imageUrl ? (
+            <img src={imageUrl} alt="Imagem" className="rounded-xl max-w-full mb-1" />
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <ImageIcon className="w-4 h-4" />
+              {message.media_url ? `Imagem (processando...)` : 'Imagem'}
+            </div>
           )}
           {message.media_caption && (
             <p className="text-sm">{message.media_caption}</p>
           )}
-          {!message.media_url && (
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <ImageIcon className="w-4 h-4" />
-              Imagem
-            </div>
-          )}
         </div>
       );
     case 'audio':
+      const audioUrl = message.media_url && message.media_url.startsWith('http') ? message.media_url : null;
       return (
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <Mic className="w-4 h-4" />
-          {message.media_url ? (
+          {audioUrl ? (
             <audio 
               controls 
               className="max-w-[200px] h-8"
               preload="metadata"
             >
-              <source src={message.media_url} type={message.media_mime_type || 'audio/ogg'} />
+              <source src={audioUrl} type={message.media_mime_type || 'audio/ogg'} />
               Seu navegador não suporta o elemento de áudio
             </audio>
           ) : (
-            <span className="text-xs">Mensagem de voz (sem arquivo)</span>
+            <span className="text-xs">
+              {message.media_url ? `Áudio (processando: ${message.media_url.slice(0, 20)}...)` : 'Mensagem de voz'}
+            </span>
           )}
         </div>
       );
