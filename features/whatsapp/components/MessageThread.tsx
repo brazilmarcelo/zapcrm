@@ -418,7 +418,10 @@ function MessageContent({ message }: { message: WhatsAppMessage }) {
     case 'text':
       return <p className="text-sm whitespace-pre-wrap break-words">{message.text_body}</p>;
     case 'image':
-      const imageUrl = message.media_url && message.media_url.startsWith('http') ? message.media_url : null;
+      // Use proxy URL to bypass CORS
+      const imageUrl = message.media_url 
+        ? `/api/whatsapp/media/${message.id}` 
+        : null;
       return (
         <div>
           {imageUrl ? (
@@ -426,7 +429,7 @@ function MessageContent({ message }: { message: WhatsAppMessage }) {
           ) : (
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <ImageIcon className="w-4 h-4" />
-              {message.media_url ? `Imagem (processando...)` : 'Imagem'}
+              {message.media_url ? `Imagem (carregando...)` : 'Imagem'}
             </div>
           )}
           {message.media_caption && (
@@ -435,7 +438,10 @@ function MessageContent({ message }: { message: WhatsAppMessage }) {
         </div>
       );
     case 'audio':
-      const audioUrl = message.media_url && message.media_url.startsWith('http') ? message.media_url : null;
+      // Use proxy URL to bypass CORS
+      const audioUrl = message.media_url 
+        ? `/api/whatsapp/media/${message.id}` 
+        : null;
       return (
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <Mic className="w-4 h-4" />
@@ -445,22 +451,26 @@ function MessageContent({ message }: { message: WhatsAppMessage }) {
               className="max-w-[200px] h-8"
               preload="metadata"
             >
-              <source src={audioUrl} type={message.media_mime_type || 'audio/ogg'} />
-              Seu navegador não suporta o elemento de áudio
+              <source src={audioUrl} type="audio/ogg" />
+             Seu navegador não suporta o elemento de áudio
             </audio>
           ) : (
             <span className="text-xs">
-              {message.media_url ? `Áudio (processando: ${message.media_url.slice(0, 20)}...)` : 'Mensagem de voz'}
+              {message.media_url ? `Áudio (carregando...)` : 'Mensagem de voz'}
             </span>
           )}
         </div>
       );
     case 'document':
+      // Use proxy URL for documents too
+      const docUrl = message.media_url 
+        ? `/api/whatsapp/media/${message.id}` 
+        : null;
       return (
         <div className="flex items-center gap-2 text-sm">
           <FileText className="w-4 h-4 text-blue-500" />
           <a 
-            href={message.media_url || `https://graph.facebook.com/v25.0/${message.meta_message_id}`} 
+            href={docUrl || '#'}
             target="_blank" 
             rel="noopener noreferrer"
             className="text-blue-600 hover:underline"
@@ -470,11 +480,15 @@ function MessageContent({ message }: { message: WhatsAppMessage }) {
         </div>
       );
     case 'video':
+      // Use proxy URL for videos
+      const videoUrl = message.media_url 
+        ? `/api/whatsapp/media/${message.id}` 
+        : null;
       return (
         <div>
-          {message.media_url ? (
+          {videoUrl ? (
             <video controls className="rounded-xl max-w-full max-h-64">
-              <source src={message.media_url} />
+              <source src={videoUrl} type="video/mp4" />
             </video>
           ) : (
             <div className="flex items-center gap-2 text-sm text-slate-500">
