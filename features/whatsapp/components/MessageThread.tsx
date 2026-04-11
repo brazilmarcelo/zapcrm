@@ -21,6 +21,7 @@ import {
   BotOff,
   User,
   Image as ImageIcon,
+  Video,
   Mic,
   MapPin,
   Check,
@@ -450,14 +451,29 @@ function MessageContent({ message }: { message: WhatsAppMessage }) {
       return (
         <div className="flex items-center gap-2 text-sm">
           <FileText className="w-4 h-4 text-blue-500" />
-          <span>{message.media_filename || 'Documento'}</span>
+          <a 
+            href={message.media_url || `https://graph.facebook.com/v25.0/${message.meta_message_id}`} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline"
+          >
+            {message.media_filename || 'Documento'}
+          </a>
         </div>
       );
-    case 'location':
+    case 'video':
       return (
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <MapPin className="w-4 h-4 text-red-500" />
-          Localização
+        <div>
+          {message.media_url ? (
+            <video controls className="rounded-xl max-w-full max-h-64">
+              <source src={message.media_url} />
+            </video>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <Video className="w-4 h-4" />
+              Vídeo
+            </div>
+          )}
         </div>
       );
     case 'sticker':

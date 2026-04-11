@@ -174,8 +174,8 @@ async function handleIncomingMessage(
     whatsapp_timestamp: whatsappTimestamp,
   });
 
-  // For audio/image/video, fetch the actual media URL from Meta
-  if (mediaUrl && (messageType === 'audio' || messageType === 'image' || messageType === 'video')) {
+  // For audio/image/video/document, fetch the actual media URL from Meta
+  if (mediaUrl && (messageType === 'audio' || messageType === 'image' || messageType === 'video' || messageType === 'document')) {
     try {
       const creds = await getMetaCredentials(supabase, organizationId, instanceDbId);
       const metaClient = createMetaClient(creds);
