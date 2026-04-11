@@ -177,97 +177,125 @@ function buildMemoryContext(memories: ChatMemory[]): string {
 // =============================================================================
 
 /**
- * Transcribe audio message using OpenAI Whisper API.
- * Falls back to Google if no OpenAI key available.
+ * Transcribe audio message using OpenAI Whisper API or Gemini.
+ * Supports both Evolution API (base64) and Meta Cloud API (URL).
  */
 async function transcribeAudio(
   supabase: SupabaseClient,
   organizationId: string,
   instance: AIAgentContext['instance'],
-  evolutionMessageId: string,
+  message: { meta_message_id?: string; media_url?: string; media_mime_type?: string },
 ): Promise<string | null> {
   try {
-    const inst = instance as any;
-    const creds: evolution.EvolutionCredentials = {
-      baseUrl: inst.evolution_api_url || '',
-      apiKey: inst.instance_token || '',
-      instanceName: inst.evolution_instance_name || '',
-    };
-
-    console.log('[ai-agent] Downloading audio for transcription, messageId:', evolutionMessageId);
-    const media = await evolution.getBase64FromMedia(creds, evolutionMessageId);
-    if (!media?.base64) {
-      console.warn('[ai-agent] No base64 audio received from Evolution API');
-      return null;
-    }
-
-    // Get API keys
+    // Get API keys and provider preference
     const { data: orgSettings } = await supabase
       .from('organization_settings')
-      .select('ai_openai_key, ai_google_key')
+      .select('ai_provider, ai_openai_key, ai_google_key, ai_anthropic_key')
       .eq('organization_id', organizationId)
       .single();
 
-    // Try OpenAI Whisper first (best for audio transcription)
-    if (orgSettings?.ai_openai_key) {
-      console.log('[ai-agent] Transcribing audio with OpenAI Whisper');
-      const audioBuffer = Buffer.from(media.base64, 'base64');
+    const provider = orgSettings?.ai_provider ?? 'openai';
+    const hasOpenAI = !!orgSettings?.ai_openai_key;
+    const hasGoogle = !!orgSettings?.ai_google_key;
 
-      // Create a FormData-like request for OpenAI Whisper API
-      const boundary = '----FormBoundary' + Math.random().toString(36).slice(2);
-      const ext = media.mimetype?.includes('ogg') ? 'ogg' : 'mp3';
-      const body = Buffer.concat([
-        Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="audio.${ext}"\r\nContent-Type: ${media.mimetype || 'audio/ogg'}\r\n\r\n`),
-        audioBuffer,
-        Buffer.from(`\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\nwhisper-1\r\n--${boundary}\r\nContent-Disposition: form-data; name="language"\r\n\r\npt\r\n--${boundary}--\r\n`),
-      ]);
+    // Download audio content
+    let audioData: { base64: string; mimetype: string } | null = null;
 
-      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${orgSettings.ai_openai_key}`,
-          'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        },
-        body,
-      });
+    // For Meta Cloud API - download from media URL
+    if (message.media_url && (message.media_url.startsWith('http') || message.meta_message_id)) {
+      const { createMetaClient } = await import('@/lib/meta/client');
+      const { getMetaCredentials } = await import('@/lib/meta/helpers');
+      
+      try {
+        // Get the actual media URL if we only have the ID
+        let mediaUrl = message.media_url;
+        if (message.meta_message_id && !message.media_url.startsWith('http')) {
+          const creds = await getMetaCredentials(supabase, organizationId, instance.id);
+          const metaClient = createMetaClient(creds);
+          const mediaData = await metaClient.getMediaUrl(message.meta_message_id);
+          mediaUrl = mediaData.url;
+        }
 
-      if (response.ok) {
-        const result = await response.json() as { text: string };
-        console.log('[ai-agent] Audio transcribed:', result.text?.slice(0, 100));
+        // Download the audio file
+        const response = await fetch(mediaUrl, {
+          headers: { Authorization: `Bearer ${(await getMetaCredentials(supabase, organizationId, instance.id)).accessToken}` }
+        });
+        
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          const base64 = Buffer.from(arrayBuffer).toString('base64');
+          audioData = {
+            base64,
+            mimetype: message.media_mime_type || 'audio/ogg'
+          };
+        }
+      } catch (err) {
+        console.warn('[ai-agent] Failed to download audio from Meta:', err);
+      }
+    }
+
+    // If we have audio data, transcribe it
+    if (audioData) {
+      // Use configured provider
+      if (provider === 'openai' && hasOpenAI) {
+        console.log('[ai-agent] Transcribing audio with OpenAI Whisper');
+        const audioBuffer = Buffer.from(audioData.base64, 'base64');
+        
+        const boundary = '----FormBoundary' + Math.random().toString(36).slice(2);
+        const ext = audioData.mimetype.includes('ogg') ? 'ogg' : 'mp3';
+        const body = Buffer.concat([
+          Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="audio.${ext}"\r\nContent-Type: ${audioData.mimetype}\r\n\r\n`),
+          audioBuffer,
+          Buffer.from(`\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\nwhisper-1\r\n--${boundary}\r\nContent-Disposition: form-data; name="language"\r\n\r\npt\r\n--${boundary}--\r\n`),
+        ]);
+
+        const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${orgSettings!.ai_openai_key}`,
+            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          },
+          body,
+        });
+
+        if (response.ok) {
+          const result = await response.json() as { text: string };
+          console.log('[ai-agent] Audio transcribed:', result.text?.slice(0, 100));
+          return result.text || null;
+        }
+        console.warn('[ai-agent] Whisper API failed:', response.status);
+      }
+
+      // Fallback: Use Gemini for audio understanding
+      if (hasGoogle) {
+        console.log('[ai-agent] Transcribing audio with Gemini');
+        const { createGoogleGenerativeAI } = await import('@ai-sdk/google');
+        const { generateText } = await import('ai');
+        const google = createGoogleGenerativeAI({ apiKey: orgSettings!.ai_google_key! });
+
+        const result = await generateText({
+          model: google('gemini-2.5-flash'),
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: 'Transcreva este áudio em português. Retorne APENAS o texto falado, sem comentários.' },
+                {
+                  type: 'file',
+                  data: audioData.base64,
+                  mimeType: audioData.mimetype as any,
+                } as any,
+              ],
+            },
+          ],
+        });
+
+        console.log('[ai-agent] Audio transcribed via Gemini:', result.text?.slice(0, 100));
         return result.text || null;
       }
-      console.warn('[ai-agent] Whisper API failed:', response.status, await response.text().catch(() => ''));
     }
 
-    // Fallback: Use Gemini for audio understanding
-    if (orgSettings?.ai_google_key) {
-      console.log('[ai-agent] Transcribing audio with Gemini');
-      const { createGoogleGenerativeAI } = await import('@ai-sdk/google');
-      const { generateText } = await import('ai');
-      const google = createGoogleGenerativeAI({ apiKey: orgSettings.ai_google_key });
-
-      const result = await generateText({
-        model: google('gemini-2.5-flash'),
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: 'Transcreva este áudio em português. Retorne APENAS o texto falado, sem comentários.' },
-              {
-                type: 'file',
-                data: media.base64,
-                mimeType: (media.mimetype || 'audio/ogg') as any,
-              } as any,
-            ],
-          },
-        ],
-      });
-
-      console.log('[ai-agent] Audio transcribed via Gemini:', result.text?.slice(0, 100));
-      return result.text || null;
-    }
-
-    console.warn('[ai-agent] No API key available for audio transcription');
+    console.warn('[ai-agent] No audio data or API key available for transcription');
     return null;
   } catch (err) {
     console.error('[ai-agent] Audio transcription failed:', err);
@@ -277,38 +305,97 @@ async function transcribeAudio(
 
 /**
  * Analyze an image message using multimodal AI.
- * Returns a description/understanding of the image content.
+ * Supports both Meta Cloud API and Evolution API.
+ * Uses configured AI provider (Google/OpenAI/Anthropic).
  */
 async function analyzeImage(
   supabase: SupabaseClient,
   organizationId: string,
   instance: AIAgentContext['instance'],
-  evolutionMessageId: string,
+  messageIdOrUrl?: string,
   caption?: string,
   conversationContext?: string,
 ): Promise<{ description: string; isRelevant: boolean } | null> {
   try {
-    const inst = instance as any;
-    const creds: evolution.EvolutionCredentials = {
-      baseUrl: inst.evolution_api_url || '',
-      apiKey: inst.instance_token || '',
-      instanceName: inst.evolution_instance_name || '',
-    };
-
-    console.log('[ai-agent] Downloading image for analysis, messageId:', evolutionMessageId);
-    const media = await evolution.getBase64FromMedia(creds, evolutionMessageId);
-    if (!media?.base64) {
-      console.warn('[ai-agent] No base64 image received from Evolution API');
-      return null;
-    }
-
+    // Get API keys and provider preference
     const { data: orgSettings } = await supabase
       .from('organization_settings')
-      .select('ai_google_key, ai_openai_key')
+      .select('ai_provider, ai_google_key, ai_openai_key, ai_anthropic_key')
       .eq('organization_id', organizationId)
       .single();
 
-    const systemPrompt = `Você é a assistente Eshylei da Full House Rodízio de Comida de Festa.
+    const provider = orgSettings?.ai_provider ?? 'openai';
+    const hasOpenAI = !!orgSettings?.ai_openai_key;
+    const hasGoogle = !!orgSettings?.ai_google_key;
+    const hasAnthropic = !!orgSettings?.ai_anthropic_key;
+
+    // Download image content
+    let imageData: { base64: string; mimetype: string } | null = null;
+
+    // For Meta Cloud API - download from media URL
+    if (messageIdOrUrl && (messageIdOrUrl.startsWith('http') || messageIdOrUrl.startsWith('wamid'))) {
+      const { createMetaClient } = await import('@/lib/meta/client');
+      const { getMetaCredentials } = await import('@/lib/meta/helpers');
+      
+      try {
+        // Get the actual media URL if we only have the ID
+        let mediaUrl = messageIdOrUrl;
+        if (messageIdOrUrl.startsWith('wamid')) {
+          const creds = await getMetaCredentials(supabase, organizationId, instance.id);
+          const metaClient = createMetaClient(creds);
+          const mediaData = await metaClient.getMediaUrl(messageIdOrUrl);
+          mediaUrl = mediaData.url;
+        }
+
+        // Download the image file
+        const response = await fetch(mediaUrl, {
+          headers: { Authorization: `Bearer ${(await getMetaCredentials(supabase, organizationId, instance.id)).accessToken}` }
+        });
+        
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          const base64 = Buffer.from(arrayBuffer).toString('base64');
+          const contentType = response.headers.get('content-type') || 'image/jpeg';
+          imageData = { base64, mimetype: contentType };
+        }
+      } catch (err) {
+        console.warn('[ai-agent] Failed to download image from Meta:', err);
+      }
+    }
+
+    // Try Evolution API if no Meta image data
+    if (!imageData) {
+      const inst = instance as any;
+      if (inst.evolution_instance_name && inst.instance_token) {
+        const creds: evolution.EvolutionCredentials = {
+          baseUrl: inst.evolution_api_url || '',
+          apiKey: inst.instance_token || '',
+          instanceName: inst.evolution_instance_name || '',
+        };
+
+        if (messageIdOrUrl && !messageIdOrUrl.startsWith('http') && !messageIdOrUrl.startsWith('wamid')) {
+          try {
+            const media = await evolution.getBase64FromMedia(creds, messageIdOrUrl);
+            if (media?.base64) {
+              imageData = { base64: media.base64, mimetype: media.mimetype || 'image/jpeg' };
+            }
+          } catch (err) {
+            console.warn('[ai-agent] Failed to download image from Evolution:', err);
+          }
+        }
+      }
+    }
+
+    if (!imageData) {
+      console.warn('[ai-agent] No image data available for analysis');
+      return null;
+    }
+
+    // Get brand context for system prompt
+    const brandRuntime = await getOrganizationBrandRuntime(supabase, organizationId);
+    const clinicName = brandRuntime.assistantName || 'Clínica';
+    
+    const systemPrompt = `Você é a assistente virtual da ${clinicName}.
 Analise esta imagem enviada por um cliente no WhatsApp.
 
 Contexto da conversa: ${conversationContext || 'Início de conversa'}
@@ -316,17 +403,17 @@ ${caption ? `Legenda da imagem: ${caption}` : ''}
 
 Responda em JSON com:
 - "description": breve descrição do que está na imagem (1-2 frases)
-- "isRelevant": true se a imagem é relevante para o atendimento (comprovante de pagamento, foto do evento, print de reserva, cardápio, etc), false se é irrelevante (meme, foto pessoal aleatória, etc)
+- "isRelevant": true se a imagem é relevante para o atendimento (comprovante de pagamento, foto do evento, print de reserva, documentos, etc), false se é irrelevante (meme, foto pessoal aleatória, etc)
 - "response_suggestion": se relevante, sugira como responder. Se irrelevante, null.
 
 Responda APENAS o JSON, sem markdown.`;
 
-    // Prefer Google for vision (cheaper + supports natively)
-    if (orgSettings?.ai_google_key) {
+    // Use configured provider for image analysis
+    if (provider === 'google' && hasGoogle) {
       console.log('[ai-agent] Analyzing image with Gemini');
       const { createGoogleGenerativeAI } = await import('@ai-sdk/google');
       const { generateText } = await import('ai');
-      const google = createGoogleGenerativeAI({ apiKey: orgSettings.ai_google_key });
+      const google = createGoogleGenerativeAI({ apiKey: orgSettings!.ai_google_key! });
 
       const result = await generateText({
         model: google('gemini-2.5-flash'),
@@ -337,8 +424,8 @@ Responda APENAS o JSON, sem markdown.`;
               { type: 'text', text: systemPrompt },
               {
                 type: 'image',
-                image: media.base64,
-                mimeType: (media.mimetype || 'image/jpeg') as any,
+                image: imageData.base64,
+                mimeType: imageData.mimetype as any,
               } as any,
             ],
           },
@@ -354,11 +441,11 @@ Responda APENAS o JSON, sem markdown.`;
     }
 
     // Fallback to OpenAI Vision
-    if (orgSettings?.ai_openai_key) {
+    if (hasOpenAI) {
       console.log('[ai-agent] Analyzing image with OpenAI Vision');
       const { createOpenAI } = await import('@ai-sdk/openai');
       const { generateText } = await import('ai');
-      const openai = createOpenAI({ apiKey: orgSettings.ai_openai_key });
+      const openai = createOpenAI({ apiKey: orgSettings!.ai_openai_key! });
 
       const result = await generateText({
         model: openai('gpt-4o-mini'),
@@ -369,8 +456,8 @@ Responda APENAS o JSON, sem markdown.`;
               { type: 'text', text: systemPrompt },
               {
                 type: 'image',
-                image: media.base64,
-                mimeType: (media.mimetype || 'image/jpeg') as any,
+                image: imageData.base64,
+                mimeType: imageData.mimetype as any,
               } as any,
             ],
           },
@@ -385,6 +472,7 @@ Responda APENAS o JSON, sem markdown.`;
       }
     }
 
+    console.warn('[ai-agent] No AI provider available for image analysis');
     return null;
   } catch (err) {
     console.error('[ai-agent] Image analysis failed:', err);
@@ -860,7 +948,7 @@ async function _executeAIAfterBatch(ctx: AIAgentContext, conversation: WhatsAppC
   // Fetch all unread messages from the customer to form the complete "incomingText"
   const { data: recentMsgs } = await supabase
     .from('whatsapp_messages')
-    .select('text_body, message_type, media_url, media_caption, evolution_message_id')
+    .select('id, text_body, message_type, media_url, media_caption, media_mime_type, meta_message_id, evolution_message_id')
     .eq('conversation_id', conversation.id)
     .eq('from_me', false)
     .order('created_at', { ascending: false })
@@ -874,28 +962,28 @@ async function _executeAIAfterBatch(ctx: AIAgentContext, conversation: WhatsAppC
     for (const msg of recentMsgs.reverse()) {
       if (msg.text_body) {
         textParts.push(msg.text_body);
-      } else if (msg.message_type === 'audio' && msg.evolution_message_id) {
-        // Transcribe audio
+      } else if (msg.message_type === 'audio' && (msg.meta_message_id || msg.media_url)) {
+        // Transcribe audio (supports both Meta and Evolution)
         const transcription = await transcribeAudio(
-          supabase, instance.organization_id, instance, msg.evolution_message_id,
+          supabase, instance.organization_id, instance, 
+          { meta_message_id: msg.meta_message_id, media_url: msg.media_url, media_mime_type: msg.media_mime_type }
         );
         if (transcription) {
           textParts.push(transcription);
           // Update the message in DB with the transcription
           await supabase.from('whatsapp_messages')
             .update({ text_body: `[Áudio transcrito]: ${transcription}` })
-            .eq('evolution_message_id', msg.evolution_message_id)
-            .eq('conversation_id', conversation.id);
+            .eq('id', msg.id);
           console.log('[ai-agent] Audio transcribed and saved:', transcription.slice(0, 80));
         } else {
           textParts.push('[Cliente enviou um áudio que não pôde ser transcrito]');
         }
-      } else if (msg.message_type === 'image' && msg.evolution_message_id) {
-        // Analyze image
+      } else if (msg.message_type === 'image' && (msg.meta_message_id || msg.media_url)) {
+        // Analyze image (supports both Meta and Evolution)
         const conversationHistory = await buildConversationContext(supabase, conversation.id);
         imageAnalysisResult = await analyzeImage(
           supabase, instance.organization_id, instance,
-          msg.evolution_message_id, msg.media_caption || undefined, conversationHistory,
+          msg.meta_message_id || msg.media_url || undefined, msg.media_caption || undefined, conversationHistory,
         );
         if (imageAnalysisResult) {
           if (imageAnalysisResult.isRelevant) {
