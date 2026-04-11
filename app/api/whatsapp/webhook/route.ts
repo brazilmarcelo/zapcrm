@@ -184,8 +184,14 @@ async function handleIncomingMessage(
       if (mediaData?.url) {
         await supabase
           .from('whatsapp_messages')
-          .update({ media_url: mediaData.url })
+          .update({ 
+            media_url: mediaData.url,
+            media_mime_type: mediaData.mime_type || mediaMimeType
+          })
           .eq('id', insertedMessage.id);
+        
+        // Update local variable for AI processing
+        mediaUrl = mediaData.url;
       }
     } catch (err) {
       console.error('[whatsapp-webhook] Failed to fetch media URL:', err);

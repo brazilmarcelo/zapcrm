@@ -439,11 +439,16 @@ function MessageContent({ message }: { message: WhatsAppMessage }) {
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <Mic className="w-4 h-4" />
           {message.media_url ? (
-            <audio controls className="max-w-[200px]">
-              <source src={message.media_url} />
+            <audio 
+              controls 
+              className="max-w-[200px] h-8"
+              preload="metadata"
+            >
+              <source src={message.media_url} type={message.media_mime_type || 'audio/ogg'} />
+              Seu navegador não suporta o elemento de áudio
             </audio>
           ) : (
-            'Mensagem de voz'
+            <span className="text-xs">Mensagem de voz (sem arquivo)</span>
           )}
         </div>
       );

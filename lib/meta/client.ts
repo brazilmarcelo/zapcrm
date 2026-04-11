@@ -114,8 +114,9 @@ export class MetaWhatsAppClient {
     return response.data ?? [];
   }
 
-  async getMediaUrl(mediaId: string): Promise<{ url: string }> {
-    return this.request(`/${mediaId}`);
+  async getMediaUrl(mediaId: string): Promise<{ url: string; mime_type?: string }> {
+    const response = await this.request<{ url: string; mime_type: string }>(`/${mediaId}`);
+    return response;
   }
 
   async uploadMedia(
