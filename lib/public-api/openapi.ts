@@ -23,6 +23,7 @@ export function getPublicApiOpenApiDocument(): OpenApiDocument {
       { name: 'Contacts', description: 'Contatos (leads/pessoas)' },
       { name: 'Deals', description: 'Negócios (cards)' },
       { name: 'Activities', description: 'Atividades (nota/tarefa/reunião/ligação)' },
+      { name: 'Products', description: 'Produtos e serviços do catálogo' },
     ],
     components: {
       securitySchemes: {
@@ -169,6 +170,21 @@ export function getPublicApiOpenApiDocument(): OpenApiDocument {
             created_at: { type: 'string' },
           },
           required: ['id', 'title', 'description', 'type', 'date', 'completed', 'deal_id', 'contact_id', 'client_company_id', 'created_at'],
+        },
+        Product: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            id: { type: 'string' },
+            name: { type: 'string' },
+            description: { type: ['string', 'null'] },
+            price: { type: ['number', 'null'] },
+            sku: { type: ['string', 'null'] },
+            active: { type: 'boolean' },
+            created_at: { type: 'string' },
+            updated_at: { type: ['string', 'null'] },
+          },
+          required: ['id', 'name', 'description', 'price', 'sku', 'active', 'created_at', 'updated_at'],
         },
       },
       responses: {
@@ -778,6 +794,101 @@ export function getPublicApiOpenApiDocument(): OpenApiDocument {
           security: [{ ApiKeyAuth: [] }],
           requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
           responses: { 201: { description: 'Created', content: { 'application/json': { schema: { type: 'object' } } } }, 401: { $ref: '#/components/responses/Unauthorized' } },
+        },
+      },
+      '/products': {
+        get: {
+          tags: ['Products'],
+          summary: 'Listar produtos/serviços',
+          security: [{ ApiKeyAuth: [] }],
+          parameters: [
+            { name: 'q', in: 'query', schema: { type: 'string' }, description: 'Buscar por nome, descrição ou SKU' },
+            { name: 'active', in: 'query', schema: { type: 'string' }, description: 'Filtrar por status (true/false)' },
+            { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 } },
+            { name: 'offset', in: 'query', schema: { type: 'integer', minimum: 0 } },
+          ],
+          responses: {
+            200: {
+              description: 'OK',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: { type: 'array', items: { $ref: '#/components/schemas/Product' } },
+                      pagination: { 
+                        type: 'object',
+                        properties: {
+                          total: { type: 'integer' },
+                          offset: { type: 'integer' },
+                          limit: { type: 'integer' },
+                          hasMore: { type: 'boolean' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            401: { $ref: '#/components/responses/Unauthorized' },
+          },
+        },
+        post: {
+          tags: ['Products'],
+          summary: 'Criar produto/serviço',
+          security: [{ ApiKeyAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    description: { type: 'string' },
+                    price: { type: 'number' },
+                    sku: { type: 'string' },
+                    active: { type: 'boolean' },
+                  },
+                  required: ['name'],
+                },
+              },
+            },
+          },
+          responses: { 201: { description: 'Created' }, 401: { $ref: '#/components/responses/Unauthorized' } },
+        },
+      },
+      '/products/{productId}': {
+        get: {
+          tags: ['Products'],
+          summary: 'Obter produto por ID',
+          security: [{ ApiKeyAuth: [] }],
+          parameters: [
+            { name: 'productId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'OK' },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            404: { description: 'Not found' },
+          },
+        },
+        patch: {
+          tags: ['Products'],
+          summary: 'Atualizar produto',
+          security: [{ ApiKeyAuth: [] }],
+          parameters: [
+            { name: 'productId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: { 200: { description: 'OK' }, 401: { $ref: '#/components/responses/Unauthorized' }, 404: { description: 'Not found' } },
+        },
+        delete: {
+          tags: ['Products'],
+          summary: 'Excluir produto',
+          security: [{ ApiKeyAuth: [] }],
+          parameters: [
+            { name: 'productId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: { 200: { description: 'OK' }, 401: { $ref: '#/components/responses/Unauthorized' } },
         },
       },
     },

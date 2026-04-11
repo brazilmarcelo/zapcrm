@@ -249,6 +249,43 @@ O proxy:
 
 ---
 
+## API de Produtos (White-label)
+
+A IA do WhatsApp pode buscar produtos do catálogo para responder perguntas sobre preços, disponibilidade, etc.
+
+### Endpoints disponíveis
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/api/public/v1/products` | Lista todos os produtos |
+| GET | `/api/public/v1/products/{id}` | Detalhes de um produto |
+| POST | `/api/public/v1/products` | Criar produto |
+| PATCH | `/api/public/v1/products/{id}` | Atualizar produto |
+| DELETE | `/api/public/v1/products/{id}` | Excluir produto |
+
+### Parâmetros
+
+- `q` - Busca por nome, descrição ou SKU
+- `active` - Filtrar produtos ativos (true/false)
+- `limit` - Limite de resultados (padrão: 50, máximo: 100)
+- `offset` - Paginação
+
+### Exemplo de uso
+
+```bash
+curl -X GET "https://vacinalcrm.vercel.app/api/public/v1/products?q=vacina" \
+  -H "X-Api-Key: SUA_CHAVE_AQUI"
+```
+
+### Tools da IA
+
+A IA tem duas tools disponíveis:
+
+- `searchProducts` - Buscar produtos por nome/descrição
+- `getProductDetails` - Obter detalhes de um produto específico
+
+---
+
 ## Comandos Úteis
 
 ```bash

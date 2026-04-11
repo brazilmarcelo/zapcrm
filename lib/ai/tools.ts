@@ -1630,6 +1630,87 @@ export function createCRMTools(context: CRMCallOptions, userId: string) {
                 return { success: true, message: `Reordenei ${orderedStageIds.length} estágio(s).` };
             },
         }),
+
+        searchProducts: tool({
+            description: 'Busca produtos/serviços do catálogo da empresa. Útil para o agente de IA responder perguntas sobre preços, descrição e disponibilidade de produtos.',
+            inputSchema: z.object({
+                query: z.string().optional().describe('Texto para buscar no nome ou descrição do produto'),
+                activeOnly: z.boolean().optional().default(true).describe('Retornar apenas produtos ativos'),
+            }),
+            execute: async ({ query, activeOnly }) => {
+                let queryBuilder = supabase
+                    .from('products')
+                    .select('id, name, description, price, sku, active, created_at, updated_at')
+                    .eq('organization_id', organizationId);
+
+                if (activeOnly) {
+                    queryBuilder = queryBuilder.eq('active', true);
+                }
+
+                if (query && query.trim()) {
+                    const q = query.trim().toLowerCase();
+                    queryBuilder = queryBuilder.or(`name.ilike.%${q}%,description.ilike.%${q}%,sku.ilike.%${q}%`);
+                }
+
+                const { data, error } = await queryBuilder.order('name').limit(50);
+
+                if (error) return { error: formatSupabaseFailure(error) };
+
+                const products = (data || []).map((p: any) => ({
+                    id: p.id,
+                    name: p.name,
+                    description: p.description,
+                    price: p.price ? Number(p.price) : 0,
+                    sku: p.sku,
+                    active: p.active,
+                    created_at: p.created_at,
+                    updated_at: p.updated_at,
+                }));
+
+                return { 
+                    products, 
+                    count: products.length,
+                    message: products.length > 0 
+                        ? `Encontrei ${products.length} produto(s).`
+                        : 'Nenhum produto encontrado.'
+                };
+            },
+        }),
+
+        getProductDetails: tool({
+            description: 'Obtém detalhes completos de um produto específico pelo ID.',
+            inputSchema: z.object({
+                productId: z.string().describe('ID do produto'),
+            }),
+            execute: async ({ productId }) => {
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('id, name, description, price, sku, active, created_at, updated_at')
+                    .eq('organization_id', organizationId)
+                    .eq('id', productId)
+                    .single();
+
+                if (error) {
+                    if (error.code === 'PGRST116') {
+                        return { error: 'Produto não encontrado.' };
+                    }
+                    return { error: formatSupabaseFailure(error) };
+                }
+
+                return {
+                    product: {
+                        id: data.id,
+                        name: data.name,
+                        description: data.description,
+                        price: data.price ? Number(data.price) : 0,
+                        sku: data.sku,
+                        active: data.active,
+                        created_at: data.created_at,
+                        updated_at: data.updated_at,
+                    }
+                };
+            },
+        }),
     } as Record<string, any>;
 
     // Debug/diagnóstico (scripts): registra chamadas de tools, independentemente do formato do stream.
