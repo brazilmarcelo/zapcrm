@@ -32,19 +32,23 @@ export async function GET(request: Request, { params }: Params) {
     }
 
     // If media_url is not an HTTP URL (it's a Meta ID), fetch the actual URL
+    // OR if it's a Facebook lookaside URL, we need to re-fetch with token
     let mediaUrl = message.media_url;
     let mimeType = message.media_mime_type || 'application/octet-stream';
     let filename = message.media_filename || `${message.message_type}-${messageId}`;
 
     console.log('[media-proxy] Media check:', { 
-      mediaUrl: mediaUrl?.slice(0, 50), 
+      mediaUrl: mediaUrl?.slice(0, 80), 
       isHttp: mediaUrl?.startsWith('http'),
+      isLookaside: mediaUrl?.includes('lookaside.fbsbx.com'),
       mimeType 
     });
 
-    if (!mediaUrl.startsWith('http')) {
-      // It's a Meta media ID - get the actual URL
-      // Find the instance for this conversation
+    // Check if we need to fetch fresh URL (it's a lookaside URL or just an ID)
+    const needsToken = !mediaUrl.startsWith('http') || mediaUrl.includes('lookaside.fbsbx.com');
+    
+    if (needsToken) {
+      // Find the instance for this conversation to get credentials
       const { data: conversation, error: convError } = await supabase
         .from('whatsapp_conversations')
         .select('instance_id, organization_id')
@@ -68,9 +72,21 @@ export async function GET(request: Request, { params }: Params) {
         return NextResponse.json({ error: 'Instance not found' }, { status: 404 });
       }
 
+      // Get credentials to fetch fresh media URL
       const creds = await getMetaCredentials(supabase, instance.organization_id, instance.id);
       const metaClient = createMetaClient(creds);
-      const mediaData = await metaClient.getMediaUrl(mediaUrl);
+      
+      // If mediaUrl is the full Facebook URL, extract just the ID
+      let mediaId = mediaUrl;
+      if (mediaUrl.includes('lookaside.fbsbx.com')) {
+        const match = mediaUrl.match(/mid=([^&]+)/);
+        if (match) {
+          mediaId = match[1];
+        }
+      }
+      
+      console.log('[media-proxy] Fetching fresh URL for mediaId:', mediaId);
+      const mediaData = await metaClient.getMediaUrl(mediaId);
       
       mediaUrl = mediaData.url;
       if (mediaData.mime_type) {
